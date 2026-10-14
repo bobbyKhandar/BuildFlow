@@ -142,6 +142,6 @@ reason.
 
 ## Versioning
 
-`internal/server/server.go` holds `const Version = "1.0.0"`. It is reported by
+`internal/server/server.go` holds `const Version = "v0.5"`. It is reported by
 `GET /api/health`, shown in the workbench footer and printed by
 `BuildFlow.exe --version`. Bump it when you cut a release.

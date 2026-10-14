@@ -27,7 +27,7 @@ import (
 )
 
 // Version is reported by the health endpoint and the diagnostics panel.
-const Version = "1.0.0"
+const Version = "v0.5"
 
 // TokenHeader is the header a local script must send to use the REST API.
 const TokenHeader = "X-BuildFlow-Token"
