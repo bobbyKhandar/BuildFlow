@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="buildflow-token" content="__BUILDFLOW_TOKEN__">
+<meta name="buildflow-version" content="__BUILDFLOW_VERSION__">
+<title>BuildFlow</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232f6f4e'/%3E%3Cpath d='M9 22V10h5.2c2.5 0 4 1.3 4 3.4 0 1.4-.7 2.4-1.9 2.8 1.5.3 2.4 1.4 2.4 3 0 2.2-1.6 3.6-4.2 3.6H9zm2.6-7.1h2.2c1 0 1.6-.5 1.6-1.3s-.6-1.3-1.6-1.3h-2.2v2.6zm0 5.1h2.5c1.1 0 1.7-.5 1.7-1.4s-.6-1.4-1.7-1.4h-2.5V20z' fill='%23fff'/%3E%3Cpath d='M21 22v-8h2v8h-2z' fill='%2392d7b0'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">BF</span>
+    <span class="brand-name">BuildFlow</span>
+    <span class="brand-ver" id="appVersion"></span>
+  </div>
+
+  <button class="chip" id="workspaceChip" title="Click to open workspace settings">
+    <span class="chip-label">Workspace</span>
+    <span class="chip-value" id="workspaceValue">not set</span>
+  </button>
+
+  <div class="save-status" id="saveStatus" data-state="idle">
+    <span class="dot"></span><span id="saveStatusText">Ready</span>
+  </div>
+
+  <div class="topbar-spacer"></div>
+
+  <label class="switch" title="Save automatically a moment after you stop typing">
+    <input type="checkbox" id="autosaveToggle" checked>
+    <span>Autosave</span>
+  </label>
+
+  <button class="btn" id="btnOpen" title="Open the BuildFlow page in your browser">Open BuildFlow</button>
+  <button class="btn" id="btnSettings" title="Workspace, start with Windows, diagnostics">Settings</button>
+  <button class="btn btn-quiet" id="btnQuit" title="Stop the background application">Quit</button>
+</header>
+
+<main class="shell" id="shell">
+
+  <!-- ------------------------------------------------------------------ -->
+  <aside class="sidebar">
+    <section class="panel-group">
+      <h2 class="group-title">Project</h2>
+      <select id="projectSelect" class="select" aria-label="Active project"></select>
+      <div class="row gap">
+        <button class="btn btn-sm" id="btnNewProject">New</button>
+        <button class="btn btn-sm" id="btnRenameProject">Rename</button>
+        <button class="btn btn-sm btn-danger-quiet" id="btnDeleteProject">Delete</button>
+      </div>
+      <input id="projectDescription" class="input input-sm" placeholder="Project description (optional)" aria-label="Project description">
+      <div class="meta" id="projectMeta"></div>
+    </section>
+
+    <section class="panel-group">
+      <h2 class="group-title">Stage</h2>
+      <nav class="stages" id="stageNav" aria-label="Workflow stages"></nav>
+    </section>
+
+    <section class="panel-group" id="packageGroup">
+      <h2 class="group-title">Work packages</h2>
+      <div id="packageList" class="package-list"></div>
+      <button class="btn btn-sm btn-block" id="btnAddPackage">+ Add next package</button>
+    </section>
+  </aside>
+
+  <!-- ------------------------------------------------------------------ -->
+  <section class="workbench" id="workbench">
+
+    <div class="stage-head">
+      <div class="stage-head-main">
+        <h1 id="stageTitle">Step 1</h1>
+        <p id="stageQuestion" class="stage-question"></p>
+        <div class="package-picker" id="packagePicker" hidden>
+          <label for="packageSelect">Package</label>
+          <select id="packageSelect" aria-label="Select a work package"></select>
+        </div>
+      </div>
+      <div class="stage-head-side">
+        <div class="stage-status" id="stageStatus"></div>
+        <button class="btn btn-sm btn-quiet" id="btnOpenFolder" title="Open the project folder in Explorer">Folder</button>
+      </div>
+    </div>
+
+    <div class="workspace-warning" id="workspaceWarning" hidden>
+      <strong>No workspace folder yet.</strong>
+      BuildFlow needs an absolute folder path to store your Markdown files.
+      <button class="btn btn-sm" id="btnChooseWorkspace">Choose workspace folder</button>
+    </div>
+
+    <!-- INPUT --------------------------------------------------------- -->
+    <details class="pane" id="paneInput" open>
+      <summary>
+        <span class="pane-name">Input</span>
+        <span class="pane-path" id="inputPath">inputs/step-01.md</span>
+        <span class="pane-spacer"></span>
+        <span class="pane-flag" id="inputFlag"></span>
+      </summary>
+      <div class="pane-body">
+        <div class="pane-toolbar">
+          <button class="btn btn-sm" data-save="input">Save</button>
+          <button class="btn btn-sm btn-quiet" data-copy="input">Copy</button>
+          <button class="btn btn-sm btn-quiet" data-md="input">Markdown preview</button>
+          <button class="btn btn-sm btn-quiet" data-reload="input">Reload from disk</button>
+          <span class="pane-hint">What you paste in for this step.</span>
+        </div>
+        <textarea id="inputText" class="editor" spellcheck="false" placeholder="Nothing saved for this input yet."></textarea>
+        <div class="md-preview" id="inputPreview" hidden></div>
+      </div>
+    </details>
+
+    <!-- PROMPT -------------------------------------------------------- -->
+    <details class="pane" id="panePrompt" open>
+      <summary>
+        <span class="pane-name">Prompt</span>
+        <span class="pane-path" id="promptPath">global-prompts/step-01.md</span>
+        <span class="pane-spacer"></span>
+        <span class="badge" id="templateBadge">global</span>
+        <span class="pane-flag" id="promptFlag"></span>
+      </summary>
+      <div class="pane-body">
+
+        <div class="assemble-bar">
+          <button class="btn btn-sm btn-primary" id="btnAssemble">Assemble prompt</button>
+          <button class="btn btn-sm" id="btnCopyPrompt" title="Copy the assembled prompt to the clipboard">Copy prompt</button>
+          <button class="btn btn-sm" id="btnSnapshot">Save snapshot</button>
+          <button class="btn btn-sm btn-quiet" id="btnLoadSnapshot">Load snapshot</button>
+          <span class="pane-hint" id="assembledInfo"></span>
+        </div>
+
+        <div class="prereq" id="prereqBox" hidden></div>
+
+        <details class="subpane" id="templateEditorPane">
+          <summary>Prompt template <span class="muted" id="templateScopeLabel">(global)</span></summary>
+          <div class="subpane-body">
+            <div class="pane-toolbar">
+              <label class="switch">
+                <input type="checkbox" id="templateLocalToggle">
+                <span>Local override for this project</span>
+              </label>
+              <button class="btn btn-sm" data-save-template="1">Save template</button>
+              <button class="btn btn-sm btn-quiet" id="btnRevertTemplate" hidden>Revert to global</button>
+              <span class="pane-hint" id="templateHint"></span>
+            </div>
+            <textarea id="templateText" class="editor editor-small" spellcheck="false"></textarea>
+            <details class="mini">
+              <summary>Available placeholders</summary>
+              <div class="tokens" id="tokenList"></div>
+            </details>
+          </div>
+        </details>
+
+        <div class="pane-toolbar">
+          <label class="switch">
+            <input type="checkbox" id="promptEdited">
+            <span>Prompt edited by hand</span>
+          </label>
+          <span class="pane-hint">Edit the assembled prompt before copying if you need to.</span>
+        </div>
+        <textarea id="promptText" class="editor editor-prompt" spellcheck="false" placeholder="Press Assemble prompt to build it from the saved outputs."></textarea>
+      </div>
+    </details>
+
+    <!-- OUTPUT -------------------------------------------------------- -->
+    <details class="pane" id="paneOutput" open>
+      <summary>
+        <span class="pane-name">Output</span>
+        <span class="pane-path" id="outputPath">outputs/step-01.md</span>
+        <span class="pane-spacer"></span>
+        <span class="pane-flag" id="outputFlag"></span>
+      </summary>
+      <div class="pane-body">
+        <div class="pane-toolbar">
+          <button class="btn btn-sm" data-save="output">Save</button>
+          <button class="btn btn-sm btn-quiet" data-copy="output">Copy</button>
+          <button class="btn btn-sm btn-quiet" data-md="output">Markdown preview</button>
+          <button class="btn btn-sm btn-quiet" data-reload="output">Reload from disk</button>
+          <span class="pane-spacer"></span>
+          <button class="btn btn-sm btn-accent" id="btnDetectPackages" hidden>Split into work packages</button>
+        </div>
+        <textarea id="outputText" class="editor" spellcheck="false" placeholder="Paste what the AI gave you here."></textarea>
+        <div class="md-preview" id="outputPreview" hidden></div>
+      </div>
+    </details>
+
+    <!-- STEP 4 WORK PACKAGES ------------------------------------------- -->
+    <details class="pane" id="paneStep4" hidden>
+      <summary>
+        <span class="pane-name">Work packages</span>
+        <span class="pane-path" id="step4Path">packages/</span>
+        <span class="pane-spacer"></span>
+        <span class="pane-flag" id="step4Flag"></span>
+      </summary>
+      <div class="pane-body">
+        <div class="pane-toolbar">
+          <label class="switch">
+            <input type="checkbox" id="step4NotesToggle">
+            <span>Packaging notes (feeds the Step 4 prompt)</span>
+          </label>
+          <button class="btn btn-sm" id="btnStep4Notes">Save notes</button>
+        </div>
+        <textarea id="step4NotesText" class="editor editor-small" rows="3" spellcheck="false"
+          placeholder="Optional. How large each package should be, what to split first, boundaries you already know."></textarea>
+        <div id="step4Slots"></div>
+        <p class="muted small">
+          Fill in a slot's <strong>output</strong> to create that work package in Step 5.
+          A new empty slot appears once you start filling one in. Saving a package also copies
+          it into that package's Step 5 input.
+        </p>
+      </div>
+    </details>
+
+    <!-- PACKAGE DOC --------------------------------------------------- -->
+    <details class="pane" id="panePackage" hidden>
+      <summary>
+        <span class="pane-name">Package notes</span>
+        <span class="pane-path" id="packageDocPath">packages/P01.md</span>
+        <span class="pane-spacer"></span>
+        <span class="pane-flag" id="packageDocFlag"></span>
+      </summary>
+      <div class="pane-body">
+        <div class="pane-toolbar">
+          <button class="btn btn-sm" data-save="packagedoc">Save</button>
+          <button class="btn btn-sm btn-quiet" data-md="packagedoc">Markdown preview</button>
+          <span class="pane-hint">The package description injected into the Step 5 prompt.</span>
+        </div>
+        <textarea id="packageDocText" class="editor editor-small" spellcheck="false"></textarea>
+        <div class="md-preview" id="packageDocPreview" hidden></div>
+      </div>
+    </details>
+
+  </section>
+</main>
+
+<!-- ------------------------------------------------------------------ -->
+<!-- Settings dialog                                                     -->
+<!-- ------------------------------------------------------------------ -->
+<dialog id="settingsDialog" class="dialog">
+  <form method="dialog" class="dialog-body">
+    <h2>Settings</h2>
+
+    <section class="field">
+      <h3>Workspace folder</h3>
+      <p class="muted">
+        An absolute Windows path. BuildFlow creates
+        <code>global-prompts\</code> and <code>projects\</code> inside it and stores every
+        document as UTF-8 Markdown you can open in Obsidian.
+      </p>
+      <div class="row gap">
+        <input class="input" id="workspacePath" placeholder="D:\Obsidian\BuildFlow-workspace" spellcheck="false">
+        <button type="button" class="btn" id="btnPickFolder">Choose folder&hellip;</button>
+      </div>
+      <div class="row gap">
+        <button type="button" class="btn btn-sm" id="btnValidatePath">Validate</button>
+        <button type="button" class="btn btn-sm btn-primary" id="btnUsePath">Use this folder</button>
+      </div>
+      <div class="validation" id="pathValidation"></div>
+      <p class="muted small">Current: <code id="currentWorkspace"></code></p>
+    </section>
+
+    <section class="field">
+      <h3>Start with Windows</h3>
+      <label class="switch switch-lg">
+        <input type="checkbox" id="autostartToggle">
+        <span>Start BuildFlow when I sign in</span>
+      </label>
+      <p class="muted small">
+        Registers the current user only, under
+        <code>HKCU\Software\Microsoft\Windows\CurrentVersion\Run</code>. No administrator
+        rights and no Windows service. BuildFlow starts quietly in the notification area.
+      </p>
+    </section>
+
+    <section class="field">
+      <h3>Startup</h3>
+      <label class="switch switch-lg">
+        <input type="checkbox" id="openOnStartToggle">
+        <span>Open the browser when I start BuildFlow</span>
+      </label>
+      <p class="muted small">
+        Local address: <code id="localUrl"></code> &mdash; fixed so the bookmark always works.
+        <span id="portHint" class="muted"></span>
+      </p>
+    </section>
+
+    <section class="field">
+      <h3>Files</h3>
+      <table class="kv">
+        <tr><td>Configuration</td><td><code id="cfgPath"></code></td></tr>
+        <tr><td>Log</td><td><code id="logPath"></code></td></tr>
+        <tr><td>API token</td><td><code id="tokenPath"></code></td></tr>
+        <tr><td>Workspace</td><td><code id="diagWorkspace"></code></td></tr>
+        <tr><td>Version</td><td><code id="diagVersion"></code></td></tr>
+        <tr><td>Listening on</td><td><code>127.0.0.1 only</code></td></tr>
+      </table>
+      <div class="row gap">
+        <button type="button" class="btn btn-sm btn-quiet" id="btnRefreshDiagnostics">Refresh</button>
+        <button type="button" class="btn btn-sm btn-quiet" id="btnShowLog">Show log</button>
+      </div>
+      <pre class="logbox" id="logBox" hidden></pre>
+    </section>
+
+    <section class="field">
+      <h3>Using the REST API from a script</h3>
+      <p class="muted small">
+        The server listens on loopback only, refuses unapproved origins and never sends
+        CORS headers. A local script must send the token from
+        <code id="tokenPath2"></code> in the
+        <code>X-BuildFlow-Token</code> header:
+      </p>
+      <pre class="logbox">curl -H "X-BuildFlow-Token: &lt;token&gt;" http://127.0.0.1:8765/api/projects</pre>
+    </section>
+
+    <div class="dialog-actions">
+      <button class="btn" value="close" id="btnCloseSettings">Close</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ------------------------------------------------------------------ -->
+<!-- Package split dialog                                                -->
+<!-- ------------------------------------------------------------------ -->
+<dialog id="packagesDialog" class="dialog dialog-wide">
+  <div class="dialog-body">
+    <h2>Split Step 4 output into work packages</h2>
+    <p class="muted">
+      BuildFlow found the headings below. Correct anything that is wrong before creating
+      files. Existing package files are never replaced unless you tick them.
+    </p>
+    <div class="warn" id="detectWarnings"></div>
+    <div class="table-wrap">
+      <table class="packages-table">
+        <thead>
+          <tr>
+            <th class="col-check">Create</th>
+            <th class="col-id">ID</th>
+            <th>Title</th>
+            <th class="col-lines">Lines</th>
+            <th class="col-file">File state</th>
+          </tr>
+        </thead>
+        <tbody id="detectRows"></tbody>
+      </table>
+    </div>
+    <div class="unassigned" id="detectUnassigned" hidden></div>
+    <div class="dialog-actions">
+      <button class="btn" id="btnDetectCancel">Cancel</button>
+      <button class="btn btn-primary" id="btnDetectConfirm">Create packages</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- ------------------------------------------------------------------ -->
+<!-- Conflict dialog                                                     -->
+<!-- ------------------------------------------------------------------ -->
+<dialog id="conflictDialog" class="dialog">
+  <div class="dialog-body">
+    <h2>File changed outside BuildFlow</h2>
+    <p id="conflictText" class="warn"></p>
+    <div class="conflict-grid">
+      <div>
+        <h3>On disk (newer)</h3>
+        <pre class="logbox" id="conflictDisk"></pre>
+      </div>
+      <div>
+        <h3>In the editor (yours, unsaved)</h3>
+        <pre class="logbox" id="conflictMine"></pre>
+      </div>
+    </div>
+    <p class="muted small">Nothing was written. Your editor text is untouched.</p>
+    <div class="dialog-actions">
+      <button class="btn" id="btnConflictCancel">Keep editing</button>
+      <button class="btn" id="btnConflictReload">Reload from disk</button>
+      <button class="btn btn-danger" id="btnConflictOverwrite">Overwrite with my version</button>
+    </div>
+  </div>
+</dialog>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

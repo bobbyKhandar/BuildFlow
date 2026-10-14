@@ -1,0 +1,13 @@
+# Build output
+/dist/
+*.exe
+
+# Local scratch
+/.test/
+/*.log
+
+# Editor noise
+/.vscode/
+/.idea/
+Thumbs.db
+desktop.ini
