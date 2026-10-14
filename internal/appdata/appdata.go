@@ -1,5 +1,5 @@
 // Package appdata resolves the per-user application-data folders used by
-// BuildFlow for configuration, logs and the local API token.
+// BuildFlow for configuration, logs, the local API token and provider keys.
 //
 // The folder is normally %LOCALAPPDATA%\BuildFlow. Setting the BUILDFLOW_HOME
 // environment variable overrides the location, which is useful for testing and
@@ -40,6 +40,9 @@ type Settings struct {
 	Version            int       `json:"version"`
 	Port               int       `json:"port"`
 	WorkspacePath      string    `json:"workspacePath"`
+	LLMMode            string    `json:"llmMode,omitempty"`
+	LLMProvider        string    `json:"llmProvider,omitempty"`
+	LLMModel           string    `json:"llmModel,omitempty"`
 	OpenBrowserOnStart bool      `json:"openBrowserOnStart"`
 	StartWithWindows   bool      `json:"startWithWindows"`
 	StartAtLogin       *bool     `json:"startAtLogin,omitempty"`
@@ -61,6 +64,8 @@ func defaultSettings() Settings {
 	return Settings{
 		Version:            1,
 		Port:               DefaultPort,
+		LLMMode:            "free",
+		LLMProvider:        "groq",
 		OpenBrowserOnStart: true,
 		BackgroundLaunch:   false,
 	}

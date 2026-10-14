@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"buildflow/internal/appdata"
+	"buildflow/internal/llm"
 	"buildflow/internal/logging"
 	"buildflow/internal/server"
 	"buildflow/internal/winutil"
@@ -190,6 +191,7 @@ func run() int {
 
 	app := &server.App{
 		Store:             store,
+		LLM:               llm.New(store),
 		Log:               logger,
 		Port:              settings.Port,
 		BaseURL:           urlFor(),

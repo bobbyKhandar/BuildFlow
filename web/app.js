@@ -23,6 +23,8 @@
 
   const state = {
     settings: null,
+    llmConfig: null,
+    llmLimits: {},
     stages: [],
     projects: [],
     projectId: '',
@@ -1302,6 +1304,120 @@
       $('diagVersion').textContent = d.version + ' \u00b7 pid ' + d.pid + ' \u00b7 ' + d.bind;
       $('autostartToggle').checked = !!d.autostart;
     } catch (_) { /* diagnostics are optional */ }
+    try {
+      await loadLLMSettings(true);
+    } catch (err) {
+      $('llmStatus').textContent = err.message;
+    }
+  }
+
+  async function loadLLMSettings(loadCatalog) {
+    const cfg = await api('/api/llm');
+    state.llmConfig = cfg;
+    $('llmMode').value = cfg.mode;
+    fillProviderChoices(cfg);
+    $('llmKeyPath').textContent = cfg.keyFile || 'BuildFlow state folder';
+    $('llmKeyStatus').textContent = cfg.keyPresent ? 'key saved' : 'no key saved';
+    $('btnRemoveLLMKey').disabled = !cfg.keyPresent;
+    $('llmKey').value = '';
+    if (loadCatalog && cfg.keyPresent) await loadLLMModels(true);
+    else if (!cfg.keyPresent) {
+      $('llmModel').replaceChildren(new Option('Add a key to load models', ''));
+      $('llmStatus').textContent = 'Add a provider key to browse available chat models.';
+    }
+  }
+
+  function fillProviderChoices(cfg) {
+    const select = $('llmProvider');
+    select.replaceChildren();
+    (cfg.providers || []).forEach((provider) => {
+      select.add(new Option(provider.name, provider.id));
+    });
+    select.value = cfg.provider;
+  }
+
+  async function saveLLMSelection(loadCatalog) {
+    const cfg = await api('/api/llm', {
+      method: 'PUT', body: {
+        mode: $('llmMode').value,
+        provider: $('llmProvider').value,
+        model: $('llmModel').value,
+      },
+    });
+    state.llmConfig = cfg;
+    fillProviderChoices(cfg);
+    $('llmKeyPath').textContent = cfg.keyFile || 'BuildFlow state folder';
+    $('llmKeyStatus').textContent = cfg.keyPresent ? 'key saved' : 'no key saved';
+    $('btnRemoveLLMKey').disabled = !cfg.keyPresent;
+    $('llmStatus').textContent = 'Model settings saved.';
+    if (loadCatalog && cfg.keyPresent) await loadLLMModels(true);
+  }
+
+  async function loadLLMModels(quiet) {
+    const provider = $('llmProvider').value;
+    $('llmStatus').textContent = 'Loading models…';
+    try {
+      const result = await api('/api/llm/models?provider=' + encodeURIComponent(provider));
+      const selected = state.llmConfig && state.llmConfig.provider === provider
+        ? state.llmConfig.model : '';
+      const limits = result.publishedFreeLimits || {};
+      state.llmLimits = limits;
+      const choices = (result.models || []).map((id) => {
+        const cap = limits[id];
+        return new Option(id + (cap ? ' · ' + cap.rpm + ' RPM / ' + cap.rpd.toLocaleString() + ' RPD' : ''), id);
+      });
+      if (selected && !result.models.includes(selected)) {
+        choices.unshift(new Option(selected + ' (saved, not in current list)', selected));
+      }
+      $('llmModel').replaceChildren(...choices);
+      if (selected) $('llmModel').value = selected;
+      $('llmRateNote').textContent = provider === 'groq'
+        ? 'Groq published Free defaults are shown for supported models; your account plan or console may show different limits. ' +
+          'See console.groq.com/docs/rate-limits.'
+        : 'Premium rate limits and billing depend on your provider account. BuildFlow does not promise unlimited use.';
+      const activeLimits = limits[$('llmModel').value];
+      $('llmStatus').textContent = result.models.length + ' chat models found. Connection succeeded.' +
+        (activeLimits ? ' Selected model defaults: ' + activeLimits.rpm + ' RPM, ' + activeLimits.rpd.toLocaleString() + ' RPD.' : '');
+    } catch (err) {
+      $('llmStatus').textContent = err.message;
+      if (!quiet) toast('Could not load provider models: ' + err.message, 'err');
+      throw err;
+    }
+  }
+
+  async function saveLLMKey() {
+    const key = $('llmKey').value;
+    if (!key.trim()) { toast('Enter an API key first.', 'warn'); return; }
+    try {
+      const cfg = await api('/api/llm/key', {
+        method: 'PUT', body: { provider: $('llmProvider').value, key: key },
+      });
+      $('llmKey').value = '';
+      state.llmConfig = cfg;
+      $('llmKeyStatus').textContent = 'key saved';
+      $('btnRemoveLLMKey').disabled = false;
+      $('llmStatus').textContent = 'Key saved in the private state folder. Checking provider…';
+      await loadLLMModels(false);
+    } catch (err) {
+      $('llmStatus').textContent = err.message;
+      toast('Could not save or check the API key: ' + err.message, 'err');
+    }
+  }
+
+  async function removeLLMKey() {
+    const provider = $('llmProvider').value;
+    if (!confirm('Remove the saved ' + provider + ' API key?')) return;
+    try {
+      const cfg = await api('/api/llm/key?provider=' + encodeURIComponent(provider), { method: 'DELETE' });
+      state.llmConfig = cfg;
+      $('llmKey').value = '';
+      $('llmKeyStatus').textContent = 'no key saved';
+      $('btnRemoveLLMKey').disabled = true;
+      $('llmModel').replaceChildren(new Option('Add a key to load models', ''));
+      $('llmStatus').textContent = 'Saved key removed.';
+    } catch (err) {
+      toast('Could not remove the API key: ' + err.message, 'err');
+    }
   }
 
   async function validatePath() {
@@ -1493,6 +1609,50 @@
     $('btnPickFolder').addEventListener('click', pickFolder);
     $('btnRefreshDiagnostics').addEventListener('click', loadSettingsInto);
     $('btnShowLog').addEventListener('click', showLog);
+    $('llmMode').addEventListener('change', async () => {
+      $('llmKey').value = '';
+      const mode = $('llmMode').value;
+      const providers = mode === 'free'
+        ? [{ id: 'groq', name: 'Groq Cloud' }]
+        : [
+          { id: 'openai', name: 'OpenAI' },
+          { id: 'deepseek', name: 'DeepSeek' },
+          { id: 'mistral', name: 'Mistral' },
+          { id: 'openrouter', name: 'OpenRouter' },
+        ];
+      const selected = $('llmProvider').value;
+      $('llmProvider').replaceChildren(...providers.map((p) => new Option(p.name, p.id)));
+      $('llmProvider').value = providers.some((p) => p.id === selected) ? selected : providers[0].id;
+      $('llmModel').replaceChildren(new Option('Load models from provider', ''));
+      try { await saveLLMSelection(false); }
+      catch (err) { $('llmStatus').textContent = err.message; toast(err.message, 'err'); }
+    });
+    $('llmProvider').addEventListener('change', async () => {
+      $('llmKey').value = '';
+      $('llmModel').replaceChildren(new Option('Load models from provider', ''));
+      try {
+        await saveLLMSelection(false);
+        if (state.llmConfig && state.llmConfig.keyPresent) await loadLLMModels(true);
+        else $('llmStatus').textContent = 'Add a key for this provider to browse models.';
+      } catch (err) { $('llmStatus').textContent = err.message; }
+    });
+    $('llmModel').addEventListener('change', () => {
+      const cap = state.llmLimits[$('llmModel').value];
+      $('llmStatus').textContent = cap
+        ? 'Published Free defaults: ' + cap.rpm + ' RPM, ' + cap.rpd.toLocaleString() + ' RPD, ' +
+          cap.tpm.toLocaleString() + ' TPM, ' + cap.tpd.toLocaleString() + ' TPD.'
+        : 'Select Save model settings to use this model.';
+    });
+    $('btnLoadModels').addEventListener('click', async () => {
+      try { await loadLLMModels(false); }
+      catch (_) { /* status and toast are handled by loadLLMModels */ }
+    });
+    $('btnSaveLLMModel').addEventListener('click', async () => {
+      try { await saveLLMSelection(false); }
+      catch (err) { $('llmStatus').textContent = err.message; toast(err.message, 'err'); }
+    });
+    $('btnSaveLLMKey').addEventListener('click', saveLLMKey);
+    $('btnRemoveLLMKey').addEventListener('click', removeLLMKey);
 
     $('autostartToggle').addEventListener('change', async (e) => {
       const wanted = e.target.checked;

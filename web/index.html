@@ -285,6 +285,52 @@
     </section>
 
     <section class="field">
+      <h3>Language model</h3>
+      <p class="muted small">
+        Free mode uses Groq Cloud and its current account limits. Premium mode uses the
+        provider account you choose; billing and quotas are set by that provider.
+      </p>
+      <div class="row gap llm-settings-row">
+        <label class="llm-select">Mode
+          <select class="input" id="llmMode">
+            <option value="free">Free · Groq Cloud</option>
+            <option value="premium">Premium · your provider account</option>
+          </select>
+        </label>
+        <label class="llm-select">Provider
+          <select class="input" id="llmProvider"></select>
+        </label>
+      </div>
+      <div class="row gap llm-settings-row">
+        <label class="llm-select">Chat model
+          <select class="input" id="llmModel">
+            <option value="">Load models from provider</option>
+          </select>
+        </label>
+        <button type="button" class="btn" id="btnLoadModels">Load models</button>
+      </div>
+      <p class="muted small" id="llmRateNote">
+        Choose a model to view its published Groq free-tier RPM/RPD defaults. Premium limits are controlled by your provider account.
+      </p>
+      <div class="row gap llm-key-row">
+        <label class="llm-key">API key <span id="llmKeyStatus" class="muted small"></span>
+          <input class="input" id="llmKey" type="password" autocomplete="new-password"
+                 placeholder="Paste provider API key" spellcheck="false">
+        </label>
+        <button type="button" class="btn btn-primary" id="btnSaveLLMKey">Save key</button>
+        <button type="button" class="btn" id="btnRemoveLLMKey">Remove</button>
+      </div>
+      <div class="row gap">
+        <button type="button" class="btn btn-sm" id="btnSaveLLMModel">Save model settings</button>
+        <span class="muted small" id="llmStatus" role="status"></span>
+      </div>
+      <p class="muted small">
+        The key is masked here and stored in <code id="llmKeyPath"></code>. Masking protects
+        it from shoulder-surfing; the file is private to your account but is not encrypted.
+      </p>
+    </section>
+
+    <section class="field">
       <h3>Files</h3>
       <table class="kv">
         <tr><td>Configuration</td><td><code id="cfgPath"></code></td></tr>

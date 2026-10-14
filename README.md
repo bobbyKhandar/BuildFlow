@@ -53,10 +53,12 @@ package and its notes with the project's reusable system context from Step
 constraints for that project. Your inventory app keeps its own context and
 package records, ready for when you switch back to it.
 
-The everyday loop stays simple: **write → assemble → copy → ask your AI →
-paste the answer back → save**. BuildFlow makes no model calls, so you can
-use whichever chatbot or coding assistant accepts text prompts. Your chosen
-AI service may have its own charges and data policies.
+The stage workflow stays simple: **write → assemble → copy → ask your AI →
+paste the answer back → save**. Settings now let you choose Groq Free mode or a
+paid provider and model, and the local API has a provider-neutral chat endpoint
+for BuildFlow's upcoming guided planning flow. The existing stage controls still
+use copy and paste. Provider charges, quotas and data policies apply to every
+request sent with your key.
 
 ## A routine you can reuse across projects
 
@@ -72,8 +74,9 @@ save conflict checks help you resolve the competing edits.
 
 BuildFlow runs from one self-contained executable for Windows or Linux and
 opens a local browser interface at **<http://127.0.0.1:8765>**. There is no
-separate runtime, database or web server to install, and no AI API key or
-BuildFlow cloud account to configure. Closing the browser tab leaves the
+separate runtime, database or web server to install, and no BuildFlow cloud
+account to configure. An API key is optional until you use the model API.
+Closing the browser tab leaves the
 application running in the system tray, ready to reopen when you return to your
 projects.
 
@@ -115,6 +118,7 @@ projects.
 - [The workflow](#the-workflow)
 - [Workspace layout](#workspace-layout)
 - [Prompt templates: global and local](#prompt-templates-global-and-local)
+- [Language model settings](#language-model-settings)
 - [Prompt snapshots](#prompt-snapshots)
 - [Working in Obsidian at the same time](#working-in-obsidian-at-the-same-time)
 - [Backup and restore](#backup-and-restore)
@@ -200,7 +204,7 @@ to update the recorded path. See [README-linux.md](README-linux.md) for removal,
 application data paths, and helper installation details.
 
 BuildFlow stores Linux settings in `$XDG_CONFIG_HOME/buildflow` (default
-`~/.config/buildflow`) and logs/API token in `$XDG_STATE_HOME/buildflow`
+`~/.config/buildflow`) and logs/API token/provider keys in `$XDG_STATE_HOME/buildflow`
 (default `~/.local/state/buildflow`). Relative XDG values are ignored. Set
 `BUILDFLOW_HOME` for a unified isolated root; isolated runs keep their login
 entry under that root and receive a separate loopback port.
@@ -508,6 +512,36 @@ only because a few dozen bytes of metadata do not belong in a note.
 - One file in the workspace is yours: the workspace `README.md` is only written
   if you do not already have one.
 
+## Language model settings
+
+**Settings → Language model** lets you choose a mode, provider and chat model.
+Use **Load models** to check the saved key and fetch the provider's current model
+list. API keys are entered as password fields and are never returned by the
+settings API.
+
+- **Free** uses Groq Cloud. Groq's free account has request and token limits;
+  the active model and account determine the current limits. BuildFlow does not
+  switch to a paid provider when a limit is reached. For common GPT-OSS and Qwen
+  chat models, the selector shows Groq's published free defaults (30 RPM,
+  1,000 RPD, 8,000 TPM and 200,000 TPD); account limits can differ. See
+  [Groq's rate-limit documentation](https://console.groq.com/docs/rate-limits).
+- **Premium** uses your key for OpenAI, DeepSeek, Mistral or OpenRouter. The
+  provider account controls billing and rate limits. Premium does not mean
+  unlimited requests.
+
+BuildFlow stores keys in `.env` under its private state folder, separate from
+the Markdown workspace and Git projects. On Linux this is
+`$XDG_STATE_HOME/buildflow/.env` (default `~/.local/state/buildflow/.env`); on
+Windows it is `%LOCALAPPDATA%\BuildFlow\.env`. The file is restricted to the
+current user where the operating system supports file permissions. The key is
+plain text on disk, so protect your user account and backups accordingly.
+
+BuildFlow's local REST API provides `GET /api/llm`, `PUT /api/llm`,
+`PUT /api/llm/key`, `DELETE /api/llm/key?provider=...`,
+`GET /api/llm/models?provider=...` and `POST /api/llm/chat`. The chat route uses
+the selected provider and model. The current stage workbench still uses its
+copy/paste loop; guided AI planning and approval screens are planned for v1.1.
+
 ## Prompt templates: global and local
 
 Each stage has one editable template. Two scopes:
@@ -589,9 +623,9 @@ Your data is files, so backup is copying files.
 every brief, design, package, prompt and answer. Nothing else is needed to move
 BuildFlow to another machine.
 
-Settings, logs and the API token live separately in
+Settings, logs, the API token and any provider keys live separately in
 `%LOCALAPPDATA%\BuildFlow\`. Back that up too if you want the chosen workspace
-path, the sign-in setting and the token to come with you.
+path, sign-in setting, token and provider keys to come with you.
 
 **To restore**, copy the workspace folder back and start BuildFlow, then set the
 workspace path in **Settings**. Projects appear from the folder contents; you do
@@ -688,6 +722,12 @@ curl -X POST -H "X-BuildFlow-Token: $TOKEN" http://127.0.0.1:8765/api/app/quit
 | GET | `/api/diagnostics` | paths, settings, workspace status |
 | GET | `/api/settings` | current settings |
 | PUT | `/api/settings` | update settings |
+| GET | `/api/llm` | selected model settings and provider key status; never returns key values |
+| PUT | `/api/llm` | select Free/Premium mode, provider and model |
+| PUT | `/api/llm/key` | add or replace a provider API key |
+| DELETE | `/api/llm/key?provider=...` | remove a saved provider key |
+| GET | `/api/llm/models?provider=...` | fetch the provider's current chat models |
+| POST | `/api/llm/chat` | send messages through the selected provider and model |
 | POST | `/api/settings/workspace` | set the workspace folder |
 | GET | `/api/settings/workspace/validate?path=` | check a path before using it |
 | POST | `/api/settings/workspace/pick` | open the native folder picker |
@@ -778,6 +818,7 @@ about making a hostile page unable to reach this one.
 | **`Sec-Fetch-Site`** | `cross-site` and `none` requests are refused outright. |
 | **No CORS** | BuildFlow never sends `Access-Control-Allow-Origin`. A page on another origin cannot read any response. |
 | **Token on every `/api/` call** | A 256-bit random token, compared in constant time. It is injected into the page from the server rather than stored in the browser. |
+| **Provider keys stay server-side** | Keys live in the app's `.env` state file, are masked in the settings page, and are never returned by the API. Model requests send their message content to the selected provider over HTTPS. |
 | **CSP** | `default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'`. No inline script, no remote anything. |
 | **Structured API** | No endpoint accepts a path. Kinds, stages and package ids are validated against fixed patterns. |
 | **Traversal and link defences** | Every resolved path is confirmed to be inside the workspace, and symlinks or junctions found inside it are refused. |
@@ -796,8 +837,9 @@ All per user, no administrator rights:
 
 ```text
 %LOCALAPPDATA%\BuildFlow\
-  config.json        settings: port, workspace path, sign-in preference
+  config.json        settings: workspace, startup, provider and model selection
   api-token.txt      the local REST API token
+  .env               provider API keys (when configured)
   logs\
     buildflow.log    rotating, 2 MiB per file
 ```
@@ -880,9 +922,9 @@ Honest list of what is not there:
 - **The Windows folder picker is the older shell dialog** (`SHBrowseForFolder`)
   and does not let you type a new folder name into it. Typing a path into
   Settings works on every supported platform.
-- **No AI integration at all**, by design. You paste prompts into your chatbot
-  and paste the answers back. BuildFlow makes no model calls and needs no AI
-  API key; any charges come from the AI service you choose.
+- **Guided planning is not wired into the stage screens yet.** You still copy
+  prompts and paste answers. The provider selector and local chat API are the
+  foundation for v1.1 planning and approval flows.
 - **Not a multi-user application.** One workspace, one token, one user. It is
   not hardened for a shared machine.
 - **No search across a workspace** in the UI. Obsidian is better at that, which

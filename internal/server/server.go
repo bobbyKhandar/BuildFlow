@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"buildflow/internal/appdata"
+	"buildflow/internal/llm"
 	"buildflow/internal/logging"
 	"buildflow/internal/workspace"
 )
@@ -39,6 +40,7 @@ const maxBodyBytes = 8 << 20
 // App carries the process-level controls the API needs.
 type App struct {
 	Store             *appdata.Store
+	LLM               *llm.Manager
 	Log               *logging.Logger
 	Port              int
 	BaseURL           string
@@ -201,6 +203,12 @@ func (s *Server) buildMux() http.Handler {
 	mux.HandleFunc("GET /api/settings/workspace/validate", s.handleValidateWorkspace)
 	mux.HandleFunc("POST /api/settings/workspace/pick", s.handlePickFolder)
 	mux.HandleFunc("POST /api/settings/autostart", s.handleSetAutostart)
+	mux.HandleFunc("GET /api/llm", s.handleGetLLMConfig)
+	mux.HandleFunc("PUT /api/llm", s.handleSetLLMConfig)
+	mux.HandleFunc("PUT /api/llm/key", s.handleSetLLMKey)
+	mux.HandleFunc("DELETE /api/llm/key", s.handleRemoveLLMKey)
+	mux.HandleFunc("GET /api/llm/models", s.handleLLMModels)
+	mux.HandleFunc("POST /api/llm/chat", s.handleLLMChat)
 	mux.HandleFunc("GET /api/stages", s.handleStages)
 	mux.HandleFunc("GET /api/templates", s.handleListTemplates)
 

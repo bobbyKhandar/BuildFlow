@@ -46,17 +46,19 @@ display StatusNotifier items when its tray widget is enabled.
 ## Application data
 
 - Settings: `$XDG_CONFIG_HOME/buildflow`, defaulting to `~/.config/buildflow`.
-- Logs and API token: `$XDG_STATE_HOME/buildflow`, defaulting to
+- Logs, API token, and provider keys (`.env`): `$XDG_STATE_HOME/buildflow`, defaulting to
   `~/.local/state/buildflow`.
 - Relative or empty XDG directory values are ignored in favor of those defaults.
-- `BUILDFLOW_HOME=/absolute/path` puts settings, logs, token, startup entry, and
+- `BUILDFLOW_HOME=/absolute/path` puts settings, logs, token, provider keys,
+  startup entry, and
   instance identity under one isolated root. The app does not alter the normal
   user's autostart entry when this override is set. Each isolated root gets its
   own random loopback port on its first run.
 
-The API token is private to your user and should not be shared. The workspace
-can live anywhere you have write access; it is independent of BuildFlow's
-settings and state folders.
+The API token and provider keys are private to your user and should not be
+shared. Provider keys are plain text in `.env` with mode `0600`; the state
+folder has mode `0700`. The workspace can live anywhere you have write access;
+it is independent of BuildFlow's settings and state folders.
 
 ## Remove
 

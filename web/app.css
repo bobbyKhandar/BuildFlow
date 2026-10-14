@@ -372,6 +372,11 @@ code { background: var(--bg-4); padding: 1px 5px; border-radius: 3px; color: #b9
 
 .conflict-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 @media (max-width: 720px) { .conflict-grid { grid-template-columns: 1fr; } }
+.llm-settings-row { align-items: end; margin: 10px 0; }
+.llm-select { display: grid; gap: 5px; flex: 1 1 220px; min-width: 0; color: var(--muted); font-size: 12px; }
+.llm-key-row { align-items: end; }
+.llm-key { display: grid; gap: 5px; flex: 1 1 300px; min-width: 0; color: var(--muted); font-size: 12px; }
+@media (max-width: 600px) { .llm-key-row > button { flex: 1 1 auto; } }
 
 /* ---------------------------------------------------------------- step 5 package picker */
 
