@@ -1,45 +1,127 @@
 # BuildFlow
 
-A local Windows workbench for a **manual, prompt-driven AI build workflow**.
+**Keep track of every project, through every phase of building with AI.**
 
-You write a brief, BuildFlow assembles a complete prompt from everything you
-have saved so far, you paste that prompt into whatever AI chatbot you use, and
-you paste the answer back. Step 2.5 pins down the stack and a *reusable system
-context*. Step 4 splits the design into work packages. Step 5 then produces one
-self-contained coding prompt at a time, for exactly one package, with that
-system context attached.
+When you work on several projects at once, each one leaves you with a different
+set of things to remember. One is still in research. Another has a design but
+needs its technology choices settled. A third is already being built, with
+several work packages and answers spread across AI conversations.
 
-Everything is stored as plain UTF-8 Markdown in a folder **you** choose, so the
-same files open cleanly in Obsidian. There is no database, no cloud account and
-no AI API call anywhere in the program. BuildFlow never talks to a model; it
-only organises your text.
+Coming back to a project means finding your place again: what you decided,
+what you have saved, what is still missing and what the next session needs.
+That gets harder every time you switch projects or start a fresh chat.
 
-- One `.exe`. No Go, Node, database or web server needed to run it.
-- A local web interface at **<http://127.0.0.1:8765>**, bound to loopback only.
-- Keeps running in the notification area when you close the browser tab.
+BuildFlow gives each project a place to keep that context. It is a local
+Windows workbench that organises your briefs, designs, technology decisions,
+work packages, prompts and AI answers by phase. You can move between projects
+and return to the saved record of each one, instead of relying on memory or
+scrolling through old conversations.
+
+## A place for every project and every phase
+
+Each project follows the same six stages: research, high-level design, stack
+and system context, low-level design, work packages and package coding prompts.
+The structure is familiar every time you switch projects, while the notes,
+decisions and outputs belong to the project you selected.
+
+Open a project and its stage navigator shows where inputs, outputs and prompt
+snapshots have been saved. Go into a phase to read the original notes, inspect
+the answer and see the prompt behind the work. If the next prompt needs an
+earlier decision that is missing, BuildFlow points out the gap. You have a
+record to check before continuing.
+
+As a project moves into implementation, each work package gets its own notes,
+prompt snapshot and output. You can return to one package without mixing its
+conversation with the others. The saved records help you see where you left
+off; you still review the results and verify the code in your development
+tools.
+
+## Pick up the context when you switch back
+
+Imagine spending the morning researching a client portal, the afternoon
+planning an inventory app and the next day working on an internal reporting
+tool. By the time you return to the portal, the details are no longer fresh.
+
+In BuildFlow, you select the portal, open its research phase and read the
+brief and answer you saved. When you are ready to make the design decisions,
+BuildFlow assembles the relevant saved material into the next prompt. You can
+review and edit it before sending it to your AI tool.
+
+Later, when that project has work packages, Step 5 combines the selected
+package and its notes with the project's reusable system context from Step
+2.5. A fresh coding session receives the saved stack, conventions and
+constraints for that project. Your inventory app keeps its own context and
+package records, ready for when you switch back to it.
+
+The everyday loop stays simple: **write → assemble → copy → ask your AI →
+paste the answer back → save**. BuildFlow makes no model calls, so you can
+use whichever chatbot or coding assistant accepts text prompts. Your chosen
+AI service may have its own charges and data policies.
+
+## A routine you can reuse across projects
+
+You can keep a shared set of prompt templates for the way you like to work,
+then override a template for a project with different needs. A useful research
+or design prompt can serve the next project too, while each project's inputs
+and answers stay separate. Starter templates give you somewhere to begin.
+
+All of this lives as plain UTF-8 Markdown in a workspace folder you choose.
+You can open the same files in Obsidian, edit them in your usual editor, keep
+them in Git or copy the folder for backup. If a file changes outside BuildFlow,
+save conflict checks help you resolve the competing edits.
+
+BuildFlow runs from one self-contained Windows `.exe` and opens a local
+browser interface at **<http://127.0.0.1:8765>**. There is no separate runtime,
+database or web server to install, and no AI API key or BuildFlow cloud account
+to configure. Closing the browser tab leaves the application running in the
+notification area, ready to reopen when you return to your projects.
+
+## Quick start
+
+1. Get or [build `BuildFlow.exe`](BUILD.md), keep it at a fixed path and
+   launch it. If Windows blocks the executable, see [Install](#install).
+2. Choose a writable workspace folder, such as `D:\Projects\BuildFlow` or a
+   folder inside your Obsidian vault.
+3. Create a project and enter your idea, goals and constraints in Step 1.
+4. Save your input, assemble the prompt, review it and copy it into your AI
+   tool. Paste the answer into **Output** and save.
+5. Repeat for Steps 2, 2.5 and 3. In Step 2.5, keep the
+   `## Reusable System Context` heading in the answer so BuildFlow can extract
+   it for later coding prompts.
+6. In Step 4, save each work package in its own slot, or detect packages from
+   an answer using `## P01 - Title` headings and review the import preview.
+7. Select a package in Step 5, assemble its coding prompt and save a snapshot
+   of the exact text you send. Paste the AI's response into that package's
+   output and save it for reference.
+8. Create your other projects in the same workspace. Use the project selector
+   to switch between them and revisit each one's saved phases and packages.
 
 ---
 
 ## Contents
 
-1. [Install](#install)
-2. [First run and choosing a workspace](#first-run-and-choosing-a-workspace)
-3. [Opening BuildFlow again](#opening-buildflow-again)
-4. [Quitting](#quitting)
-5. [Starting with Windows](#starting-with-windows)
-6. [The workflow](#the-workflow)
-7. [Workspace layout](#workspace-layout)
-8. [Prompt templates: global and local](#prompt-templates-global-and-local)
-9. [Prompt snapshots](#prompt-snapshots)
-10. [Working in Obsidian at the same time](#working-in-obsidian-at-the-same-time)
-11. [Backup and restore](#backup-and-restore)
-12. [Using the REST API from a script](#using-the-rest-api-from-a-script)
-13. [Security model](#security-model)
-14. [Where files are kept](#where-files-are-kept)
-15. [Command line flags](#command-line-flags)
-16. [Building from source](#building-from-source)
-17. [Verification](#verification)
-18. [Known limitations](#known-limitations)
+- [A place for every project and every phase](#a-place-for-every-project-and-every-phase)
+- [Pick up the context when you switch back](#pick-up-the-context-when-you-switch-back)
+- [A routine you can reuse across projects](#a-routine-you-can-reuse-across-projects)
+- [Quick start](#quick-start)
+- [Install](#install)
+- [First run and choosing a workspace](#first-run-and-choosing-a-workspace)
+- [Opening BuildFlow again](#opening-buildflow-again)
+- [Quitting](#quitting)
+- [Starting with Windows](#starting-with-windows)
+- [The workflow](#the-workflow)
+- [Workspace layout](#workspace-layout)
+- [Prompt templates: global and local](#prompt-templates-global-and-local)
+- [Prompt snapshots](#prompt-snapshots)
+- [Working in Obsidian at the same time](#working-in-obsidian-at-the-same-time)
+- [Backup and restore](#backup-and-restore)
+- [Using the REST API from a script](#using-the-rest-api-from-a-script)
+- [Security model](#security-model)
+- [Where files are kept](#where-files-are-kept)
+- [Command line flags](#command-line-flags)
+- [Building from source](#building-from-source)
+- [Verification](#verification)
+- [Known limitations](#known-limitations)
 
 ---
 
@@ -316,11 +398,14 @@ Status is derived from what is on disk, not from a checkbox you can forget:
 
 | Status | Meaning |
 | --- | --- |
-| `new` | the package exists but has no prompt snapshot yet |
-| `ready` | a prompt snapshot exists, no output yet |
-| `in progress` | there is a snapshot and an output, and the output is newer |
-| `done` | the output has not changed since the snapshot |
-| `stale` | the package file changed after the snapshot was taken |
+| `empty` | no package document or prompt snapshot exists |
+| `ready` | the package document exists, but no prompt snapshot is saved |
+| `prompt-ready` | a prompt snapshot exists, but no non-empty output is saved |
+| `done` | the package document, prompt snapshot and non-empty output are saved |
+
+These statuses describe the saved records. `done` does not mean the generated
+code has been tested or that the package meets its acceptance criteria; review
+and verify the implementation in your development tools.
 
 ---
 
@@ -742,7 +827,8 @@ Honest list of what is not there:
   a new folder name into it. Typing the path into the Settings box works fine
   and is the recommended route.
 - **No AI integration at all**, by design. You paste prompts into your chatbot
-  and paste the answers back. There is no model call, no API key, no cost.
+  and paste the answers back. BuildFlow makes no model calls and needs no AI
+  API key; any charges come from the AI service you choose.
 - **Not a multi-user application.** One workspace, one token, one user. It is
   not hardened for a shared machine.
 - **No search across a workspace** in the UI. Obsidian is better at that, which
