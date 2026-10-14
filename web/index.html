@@ -35,7 +35,7 @@
   </label>
 
   <button class="btn" id="btnOpen" title="Open the BuildFlow page in your browser">Open BuildFlow</button>
-  <button class="btn" id="btnSettings" title="Workspace, start with Windows, diagnostics">Settings</button>
+  <button class="btn" id="btnSettings" title="Workspace, login startup, diagnostics">Settings</button>
   <button class="btn btn-quiet" id="btnQuit" title="Stop the background application">Quit</button>
 </header>
 
@@ -245,12 +245,12 @@
     <section class="field">
       <h3>Workspace folder</h3>
       <p class="muted">
-        An absolute Windows path. BuildFlow creates
+        An absolute path. BuildFlow creates
         <code>global-prompts\</code> and <code>projects\</code> inside it and stores every
         document as UTF-8 Markdown you can open in Obsidian.
       </p>
       <div class="row gap">
-        <input class="input" id="workspacePath" placeholder="D:\Obsidian\BuildFlow-workspace" spellcheck="false">
+        <input class="input" id="workspacePath" placeholder="/home/me/BuildFlow-workspace" spellcheck="false">
         <button type="button" class="btn" id="btnPickFolder">Choose folder&hellip;</button>
       </div>
       <div class="row gap">
@@ -262,15 +262,13 @@
     </section>
 
     <section class="field">
-      <h3>Start with Windows</h3>
+      <h3>Start at login</h3>
       <label class="switch switch-lg">
         <input type="checkbox" id="autostartToggle">
         <span>Start BuildFlow when I sign in</span>
       </label>
       <p class="muted small">
-        Registers the current user only, under
-        <code>HKCU\Software\Microsoft\Windows\CurrentVersion\Run</code>. No administrator
-        rights and no Windows service. BuildFlow starts quietly in the notification area.
+        Registers BuildFlow for your current user. It starts quietly without opening a browser.
       </p>
     </section>
 

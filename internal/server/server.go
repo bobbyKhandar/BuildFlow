@@ -38,22 +38,23 @@ const maxBodyBytes = 8 << 20
 
 // App carries the process-level controls the API needs.
 type App struct {
-	Store        *appdata.Store
-	Log          *logging.Logger
-	Port         int
-	BaseURL      string
-	Started      time.Time
-	OpenBrowser  func() error
-	OpenURL      func(string) error
-	OpenFolder   func(string) error
-	PickFolder   func(title string) (string, error)
-	Autostart    func(enabled bool) error
-	AutostartNow func() bool
-	AutostartCmd func() string
-	Quit         func() error
-	Paths        func() DiagnosticsPaths
-	CopyToClip   func(string) error
-	Version      string
+	Store             *appdata.Store
+	Log               *logging.Logger
+	Port              int
+	BaseURL           string
+	Started           time.Time
+	OpenBrowser       func() error
+	OpenURL           func(string) error
+	OpenFolder        func(string) error
+	PickFolder        func(title string) (string, error)
+	Autostart         func(enabled bool) error
+	AutostartNow      func() bool
+	AutostartCmd      func() string
+	AutostartLocation func() string
+	Quit              func() error
+	Paths             func() DiagnosticsPaths
+	CopyToClip        func(string) error
+	Version           string
 }
 
 // DiagnosticsPaths describes files the user is told about.

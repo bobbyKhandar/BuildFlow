@@ -1,4 +1,4 @@
-// Package appdata resolves the per-user Windows application-data folder used by
+// Package appdata resolves the per-user application-data folders used by
 // BuildFlow for configuration, logs and the local API token.
 //
 // The folder is normally %LOCALAPPDATA%\BuildFlow. Setting the BUILDFLOW_HOME
@@ -7,12 +7,13 @@
 package appdata
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 )
@@ -41,9 +42,19 @@ type Settings struct {
 	WorkspacePath      string    `json:"workspacePath"`
 	OpenBrowserOnStart bool      `json:"openBrowserOnStart"`
 	StartWithWindows   bool      `json:"startWithWindows"`
+	StartAtLogin       *bool     `json:"startAtLogin,omitempty"`
 	BackgroundLaunch   bool      `json:"backgroundLaunch"`
 	LastProject        string    `json:"lastProject"`
 	UpdatedAt          time.Time `json:"updatedAt"`
+}
+
+// LoginStartupEnabled resolves the canonical setting and legacy alias. A
+// present startAtLogin value wins even when it is false.
+func (settings Settings) LoginStartupEnabled() bool {
+	if settings.StartAtLogin != nil {
+		return *settings.StartAtLogin
+	}
+	return settings.StartWithWindows
 }
 
 func defaultSettings() Settings {
@@ -57,42 +68,42 @@ func defaultSettings() Settings {
 
 // Store owns the application-data folder and the settings file.
 type Store struct {
-	mu       sync.RWMutex
-	dir      string
-	settings Settings
+	mu        sync.RWMutex
+	dir       string
+	configDir string
+	stateDir  string
+	isolated  bool
+	settings  Settings
 }
 
 // Dir returns the application-data folder, creating it when necessary.
 func Dir() (string, error) {
-	if override := strings.TrimSpace(os.Getenv(EnvOverride)); override != "" {
-		abs, err := filepath.Abs(override)
-		if err != nil {
-			return "", fmt.Errorf("resolve %s: %w", EnvOverride, err)
-		}
-		return abs, nil
-	}
-	base := strings.TrimSpace(os.Getenv("LOCALAPPDATA"))
-	if base == "" {
-		home, err := os.UserConfigDir()
-		if err != nil {
-			return "", fmt.Errorf("locate per-user application data folder: %w", err)
-		}
-		// UserConfigDir is %APPDATA%; BuildFlow keeps volatile state local.
-		base = filepath.Dir(home)
-	}
-	return filepath.Join(base, AppDirName), nil
+	configDir, _, _, err := resolveDirectories()
+	return configDir, err
+}
+
+// StateDir resolves the state root without opening the store.
+func StateDir() (string, error) {
+	_, stateDir, _, err := resolveDirectories()
+	return stateDir, err
 }
 
 // Open creates (if needed) and loads the application-data store.
 func Open() (*Store, error) {
-	dir, err := Dir()
+	configDir, stateDir, isolated, err := resolveDirectories()
 	if err != nil {
 		return nil, err
 	}
-	if err := os.MkdirAll(filepath.Join(dir, LogDirName), 0o755); err != nil {
-		return nil, fmt.Errorf("create application data folder %q: %w", dir, err)
+	if err := prepareAppDir(configDir); err != nil {
+		return nil, fmt.Errorf("create configuration folder %q: %w", configDir, err)
 	}
-	s := &Store{dir: dir, settings: defaultSettings()}
+	if err := prepareAppDir(stateDir); err != nil {
+		return nil, fmt.Errorf("create state folder %q: %w", stateDir, err)
+	}
+	if err := prepareAppDir(filepath.Join(stateDir, LogDirName)); err != nil {
+		return nil, fmt.Errorf("create log folder %q: %w", filepath.Join(stateDir, LogDirName), err)
+	}
+	s := &Store{dir: configDir, configDir: configDir, stateDir: stateDir, isolated: isolated, settings: defaultSettings()}
 	if err := s.load(); err != nil {
 		return nil, err
 	}
@@ -100,7 +111,7 @@ func Open() (*Store, error) {
 }
 
 func (s *Store) load() error {
-	path := filepath.Join(s.dir, ConfigFileName)
+	path := s.ConfigPath()
 	raw, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return s.Save()
@@ -138,7 +149,7 @@ func (s *Store) Save() error {
 		return err
 	}
 	raw = append(raw, '\n')
-	path := filepath.Join(s.dir, ConfigFileName)
+	path := s.ConfigPath()
 	tmp := path + ".tmp"
 	if err := os.WriteFile(tmp, raw, 0o644); err != nil {
 		return fmt.Errorf("write settings: %w", err)
@@ -180,11 +191,52 @@ func (s *Store) Path(parts ...string) string {
 	return filepath.Join(append([]string{s.dir}, parts...)...)
 }
 
+// RootPath is the canonical application data root used for instance identity.
+// On Linux the settings and state directories are separate; an explicit
+// BUILDFLOW_HOME keeps the historic unified-root layout.
+func (s *Store) RootPath() string { return s.dir }
+
+// StatePath returns a path inside the state root (logs and secrets).
+func (s *Store) StatePath(parts ...string) string {
+	return filepath.Join(append([]string{s.stateDir}, parts...)...)
+}
+
+// IdentityKey is stable across launches and specific to this configuration
+// and state pair. Symlinks are resolved when possible before hashing.
+func (s *Store) IdentityKey() string {
+	paths := []string{s.configDir, s.stateDir}
+	for i, p := range paths {
+		if abs, err := filepath.Abs(p); err == nil {
+			p = abs
+		}
+		if real, err := filepath.EvalSymlinks(p); err == nil {
+			p = real
+		}
+		paths[i] = filepath.Clean(p)
+	}
+	sum := sha256.Sum256([]byte(paths[0] + "\x00" + paths[1]))
+	return hex.EncodeToString(sum[:])
+}
+
+// Isolated reports whether BUILDFLOW_HOME is active.
+func (s *Store) Isolated() bool { return s.isolated }
+
+// LoginStartupEnabled resolves the canonical setting and legacy alias.
+func (s *Store) LoginStartupEnabled() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.settings.LoginStartupEnabled()
+}
+
 // LogDir returns the folder holding rotated log files.
-func (s *Store) LogDir() string { return s.Path(LogDirName) }
+func (s *Store) LogDir() string { return filepath.Join(s.stateDir, LogDirName) }
 
 // ConfigPath returns the settings file path.
-func (s *Store) ConfigPath() string { return s.Path(ConfigFileName) }
+func (s *Store) ConfigPath() string { return filepath.Join(s.configDir, ConfigFileName) }
 
 // TokenPath returns the file holding the local REST API token.
-func (s *Store) TokenPath() string { return s.Path(TokenFileName) }
+func (s *Store) TokenPath() string { return filepath.Join(s.stateDir, TokenFileName) }
+
+// ProtectToken enforces the platform's token-file permissions when a token
+// already exists. On Linux this is mode 0600.
+func ProtectToken(path string) error { return protectToken(path) }

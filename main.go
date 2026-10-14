@@ -1,4 +1,4 @@
-// Command BuildFlow is a local Windows workbench for a manual, prompt-driven AI
+// Command BuildFlow is a local workbench for a manual, prompt-driven AI
 // build workflow. It embeds its web interface, exposes a loopback-only REST API
 // and stores every document as UTF-8 Markdown in a workspace folder you choose,
 // so the same files read cleanly in Obsidian.
@@ -12,6 +12,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -47,14 +48,11 @@ func run() int {
 	flag.CommandLine.SetOutput(os.Stdout)
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stdout, "BuildFlow %s - local build workflow workbench\n\n", server.Version)
-		fmt.Fprintln(os.Stdout, "Usage: BuildFlow.exe [options]")
+		fmt.Fprintln(os.Stdout, "Usage: BuildFlow [options]")
 		fmt.Fprintln(os.Stdout, "  Serve the workbench on http://127.0.0.1:"+strconv.Itoa(appdata.DefaultPort))
 		fmt.Fprintln(os.Stdout, "\nOptions:")
 		flag.PrintDefaults()
-		fmt.Fprintln(os.Stdout, "\nData locations (per user, no administrator rights needed):")
-		fmt.Fprintln(os.Stdout, "  %LOCALAPPDATA%\\BuildFlow\\config.json    settings")
-		fmt.Fprintln(os.Stdout, "  %LOCALAPPDATA%\\BuildFlow\\logs\\           rotating log files")
-		fmt.Fprintln(os.Stdout, "  %LOCALAPPDATA%\\BuildFlow\\api-token.txt  local REST API token")
+		fmt.Fprintln(os.Stdout, "\nApplication data locations depend on your operating system.")
 	}
 	flag.Parse()
 
@@ -75,6 +73,14 @@ func run() int {
 		return 1
 	}
 	settings := store.Settings()
+	if store.Isolated() && *portFlag == 0 && settings.Port == appdata.DefaultPort {
+		ln, e := net.Listen("tcp4", "127.0.0.1:0")
+		if e == nil {
+			settings.Port = ln.Addr().(*net.TCPAddr).Port
+			_ = ln.Close()
+			_ = store.Update(func(s *appdata.Settings) { s.Port = settings.Port })
+		}
+	}
 	if *portFlag > 0 && *portFlag != settings.Port {
 		_ = store.Update(func(s *appdata.Settings) { s.Port = *portFlag })
 		settings = store.Settings()
@@ -86,6 +92,9 @@ func run() int {
 		return 1
 	}
 	defer logger.Close()
+	if err := winutil.SetAutostart(settings.LoginStartupEnabled()); err != nil {
+		logger.Warnf("could not synchronize login startup with settings: %v", err)
+	}
 
 	if *workspaceArg != "" {
 		if err := store.SetWorkspacePath(*workspaceArg); err != nil {
@@ -97,12 +106,12 @@ func run() int {
 
 	logger.Infof("BuildFlow %s starting (pid %d, console=%v)", server.Version, os.Getpid(), console)
 	logger.Infof("settings folder: %s", store.Path())
-	if err := checkWindowsVersion(logger); err != nil {
+	if err := checkPlatformVersion(logger); err != nil {
 		logger.Warnf("%v", err)
 	}
 
 	// ---- one copy only -------------------------------------------------
-	instance, already, err := winutil.AcquireInstance(mutexName)
+	instance, already, err := winutil.AcquireInstance(instanceName(store))
 	if err != nil {
 		logger.Errorf("single instance check failed: %v", err)
 		winutil.ErrorBox("BuildFlow", "BuildFlow could not create its single-instance lock:\n\n"+err.Error())
@@ -115,7 +124,11 @@ func run() int {
 			winutil.ErrorBox("BuildFlow is already running",
 				"Another copy of BuildFlow is already running, but its web server on "+url+
 					" is not answering.\n\nThis usually means a stale process or a port conflict. "+
-					"Check the log file:\n"+store.Path("logs", "buildflow.log"))
+					"Check the log file:\n"+logger.Path())
+			return 0
+		}
+		if winutil.HandoffOnAcquire() {
+			logger.Infof("sent an open request to the running instance")
 			return 0
 		}
 		// Do not wait for the browser: a second copy has done its job and must
@@ -170,27 +183,28 @@ func run() int {
 			Config: store.ConfigPath(),
 			Log:    logger.Path(),
 			Token:  store.TokenPath(),
-			Home:   store.Path(),
+			Home:   store.RootPath(),
 		}
 	}
 	urlFor := func() string { return "http://127.0.0.1:" + strconv.Itoa(settings.Port) }
 
 	app := &server.App{
-		Store:        store,
-		Log:          logger,
-		Port:         settings.Port,
-		BaseURL:      urlFor(),
-		Started:      time.Now(),
-		OpenBrowser:  func() error { return winutil.OpenURL(urlFor()) },
-		OpenURL:      winutil.OpenURL,
-		OpenFolder:   winutil.OpenFolder,
-		PickFolder:   func(title string) (string, error) { return winutil.PickFolder(title) },
-		Autostart:    winutil.SetAutostart,
-		AutostartNow: winutil.AutostartEnabled,
-		AutostartCmd: winutil.AutostartCommand,
-		Paths:        paths,
-		CopyToClip:   winutil.CopyToClipboard,
-		Version:      server.Version,
+		Store:             store,
+		Log:               logger,
+		Port:              settings.Port,
+		BaseURL:           urlFor(),
+		Started:           time.Now(),
+		OpenBrowser:       func() error { return winutil.OpenURL(urlFor()) },
+		OpenURL:           winutil.OpenURL,
+		OpenFolder:        winutil.OpenFolder,
+		PickFolder:        func(title string) (string, error) { return winutil.PickFolder(title) },
+		Autostart:         winutil.SetAutostart,
+		AutostartNow:      func() bool { return store.Settings().LoginStartupEnabled() },
+		AutostartCmd:      winutil.AutostartCommand,
+		AutostartLocation: winutil.AutostartLocation,
+		Paths:             paths,
+		CopyToClip:        winutil.CopyToClipboard,
+		Version:           server.Version,
 		Quit: func() error {
 			requestShutdown("quit requested from the interface")
 			return nil
@@ -229,6 +243,13 @@ func run() int {
 				"A log was written to:\n"+logger.Path())
 		return 1
 	}
+	if instance != nil {
+		instance.SetHandoffHandler(func() {
+			if err := winutil.OpenURL(urlFor()); err != nil {
+				logger.Warnf("could not open the browser for a second launch: %v", err)
+			}
+		})
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -257,11 +278,11 @@ func run() int {
 	tray.On("autostart", func() {
 		next := !winutil.AutostartEnabled()
 		if err := winutil.SetAutostart(next); err != nil {
-			logger.Errorf("could not change start with Windows: %v", err)
+			logger.Errorf("could not change login startup: %v", err)
 			winutil.ErrorBox("BuildFlow", "Could not change the sign-in setting:\n\n"+err.Error())
 			return
 		}
-		_ = store.Update(func(s *appdata.Settings) { s.StartWithWindows = next })
+		_ = store.Update(func(s *appdata.Settings) { s.StartWithWindows = next; s.StartAtLogin = &next })
 		refreshTray(tray, store, svc)
 	})
 	tray.On("workspace", func() {
@@ -287,14 +308,13 @@ func run() int {
 	})
 	refreshTray(tray, store, svc)
 
-	trayOK := false
+	tray.SetErrorHandler(func(err error) { logger.Warnf("tray unavailable: %v", err) })
+	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		if err := tray.Start(); err != nil {
-			logger.Warnf("notification area icon unavailable (%v); use the Quit button on "+urlFor(), err)
-			return
+			logger.Warnf("system tray icon unavailable (%v); use the Quit button on %s", err, urlFor())
 		}
-		trayOK = true
 	}()
 
 	// ---- browser --------------------------------------------------------
@@ -306,7 +326,7 @@ func run() int {
 			if err := winutil.OpenURL(urlFor()); err != nil {
 				logger.Warnf("could not open the browser automatically (%v); open %s yourself", err, urlFor())
 				winutil.InfoBox("BuildFlow is running",
-					"BuildFlow is running in the notification area, but it could not open your browser.\n\n"+
+					"BuildFlow is running, but it could not open your browser.\n\n"+
 						"Open this address manually:\n"+urlFor())
 			}
 		}()
@@ -325,11 +345,8 @@ func run() int {
 	fmt.Fprintln(os.Stdout, "  Workspace : "+orDash(svc.Root()))
 	fmt.Fprintln(os.Stdout, "  Settings  : "+store.ConfigPath())
 	fmt.Fprintln(os.Stdout, "  Log       : "+logger.Path())
-	fmt.Fprintln(os.Stdout, "  Quit      : notification area icon, or POST /api/app/quit, or Ctrl+C here")
-	if !trayOK {
-		fmt.Fprintln(os.Stdout, "  Note      : the notification area icon is still starting; if it never")
-		fmt.Fprintln(os.Stdout, "              appears, use the Quit button on the web page.")
-	}
+	fmt.Fprintln(os.Stdout, "  Quit      : system tray, web interface, POST /api/app/quit, or Ctrl+C here")
+	fmt.Fprintln(os.Stdout, "  Note      : if the system tray is unavailable, use the Quit button on the web page.")
 	fmt.Fprintln(os.Stdout, "")
 
 	var reason string
@@ -384,6 +401,9 @@ func fatal(title string, err error, console bool) {
 func ensureToken(store *appdata.Store, port int) (string, error) {
 	path := store.TokenPath()
 	if raw, err := os.ReadFile(path); err == nil {
+		if err := appdata.ProtectToken(path); err != nil {
+			return "", fmt.Errorf("secure %s: %w", path, err)
+		}
 		// The token is the only line that is not a comment.
 		for _, line := range strings.Split(string(raw), "\n") {
 			line = strings.TrimSpace(line)
@@ -417,6 +437,9 @@ func ensureToken(store *appdata.Store, port int) (string, error) {
 	if err := workspace.WriteFileAtomic(path, []byte(body)); err != nil {
 		return "", fmt.Errorf("write %s: %w", path, err)
 	}
+	if err := appdata.ProtectToken(path); err != nil {
+		return "", fmt.Errorf("secure %s: %w", path, err)
+	}
 	return token, nil
 }
 
@@ -425,7 +448,7 @@ func refreshTray(tray *winutil.Tray, store *appdata.Store, svc *workspace.Servic
 		{ID: "open", Label: "Open BuildFlow", Enabled: true},
 		{ID: "copy-url", Label: "Copy local address", Enabled: true},
 		{ID: "-", Label: "", Enabled: true},
-		{ID: "autostart", Label: "Start with Windows", Checked: winutil.AutostartEnabled(), Enabled: true},
+		{ID: "autostart", Label: "Start at login", Checked: winutil.AutostartEnabled(), Enabled: true},
 	}
 	root := svc.Root()
 	items = append(items, winutil.TrayItem{ID: "workspace", Label: "Open workspace folder", Enabled: root != ""})
@@ -438,19 +461,4 @@ func refreshTray(tray *winutil.Tray, store *appdata.Store, svc *workspace.Servic
 		winutil.TrayItem{ID: "quit", Label: "Quit BuildFlow", Enabled: true},
 	)
 	tray.SetItems(items)
-}
-
-// checkWindowsVersion warns when running on a Windows build older than the
-// supported baseline. It never blocks startup.
-func checkWindowsVersion(logger *logging.Logger) error {
-	major, minor, build, err := winutil.WindowsVersion()
-	if err != nil {
-		return nil // not worth failing over
-	}
-	if major < 10 {
-		return fmt.Errorf("this Windows build is version %d.%d; BuildFlow is tested on Windows 11 and Windows 10",
-			major, minor)
-	}
-	logger.Debugf("Windows %d.%d build %d", major, minor, build)
-	return nil
 }

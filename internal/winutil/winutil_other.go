@@ -1,4 +1,4 @@
-//go:build !windows
+//go:build !windows && !linux
 
 // Package winutil has no non-Windows implementation. This file exists so the
 // module can be type-checked and unit tested on other platforms; every entry
@@ -42,8 +42,14 @@ func AcquireInstance(name string) (*Instance, bool, error) { return &Instance{},
 // Release is a no-op outside Windows.
 func (i *Instance) Release() {}
 
+func (i *Instance) SetHandoffHandler(handler func()) {}
+func HandoffOnAcquire() bool                         { return false }
+
 // AutostartCommand returns an empty string outside Windows.
 func AutostartCommand() string { return "" }
+
+// AutostartLocation is unavailable outside supported desktop platforms.
+func AutostartLocation() string { return "" }
 
 // AutostartEnabled always reports false outside Windows.
 func AutostartEnabled() bool { return false }
@@ -73,6 +79,9 @@ func NewTray() *Tray { return &Tray{} }
 
 // On is a no-op outside Windows.
 func (t *Tray) On(id string, fn func()) {}
+
+// SetErrorHandler is a no-op on unsupported platforms.
+func (t *Tray) SetErrorHandler(fn func(error)) {}
 
 // SetItems is a no-op outside Windows.
 func (t *Tray) SetItems(items []TrayItem) { t.items = items }

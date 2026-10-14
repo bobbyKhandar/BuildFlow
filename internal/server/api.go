@@ -51,7 +51,8 @@ func (s *Server) handleDiagnostics(w http.ResponseWriter, r *http.Request) {
 		"tokenFile":     paths.Token,
 		"tokenHeader":   TokenHeader,
 		"workspace":     root,
-		"autostart":     s.app.AutostartNow(),
+		"autostart":     settings.LoginStartupEnabled(),
+		"startAtLogin":  settings.LoginStartupEnabled(),
 		"autostartCmd":  s.app.AutostartCmd(),
 		"openOnStart":   settings.OpenBrowserOnStart,
 		"lastProject":   settings.LastProject,
@@ -85,7 +86,8 @@ func (s *Server) handleGetSettings(w http.ResponseWriter, r *http.Request) {
 		"url":                s.LocalURL(),
 		"workspacePath":      settings.WorkspacePath,
 		"workspaceSet":       settings.WorkspacePath != "",
-		"startWithWindows":   s.app.AutostartNow(),
+		"startWithWindows":   settings.LoginStartupEnabled(),
+		"startAtLogin":       settings.LoginStartupEnabled(),
 		"openBrowserOnStart": settings.OpenBrowserOnStart,
 		"backgroundLaunch":   settings.BackgroundLaunch,
 		"lastProject":        settings.LastProject,
@@ -155,7 +157,7 @@ func (s *Server) handleSetWorkspace(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if !writable {
-		writeError(w, http.StatusBadRequest, clean+" is not writable by the current Windows user")
+		writeError(w, http.StatusBadRequest, clean+" is not writable by the current user")
 		return
 	}
 	scaffold, err := s.svc.EnsureWorkspace(clean)
@@ -225,22 +227,26 @@ func (s *Server) handleSetAutostart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.app.Autostart == nil {
-		writeError(w, http.StatusNotImplemented, "start-with-Windows is not available in this build")
+		writeError(w, http.StatusNotImplemented, "login startup is not available in this build")
 		return
 	}
 	if err := s.app.Autostart(req.Enabled); err != nil {
-		s.log.Errorf("could not change start-with-Windows: %v", err)
+		s.log.Errorf("could not change login startup: %v", err)
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	if err := s.app.Store.Update(func(st *appdata.Settings) { st.StartWithWindows = req.Enabled }); err != nil {
-		s.log.Warnf("autostart changed in the registry but could not be saved to config.json: %v", err)
+	if err := s.app.Store.Update(func(st *appdata.Settings) {
+		st.StartWithWindows = req.Enabled
+		st.StartAtLogin = &req.Enabled
+	}); err != nil {
+		s.log.Warnf("login startup changed but could not be saved to config.json: %v", err)
 	}
-	s.log.Infof("start with Windows = %v", req.Enabled)
+	s.log.Infof("start at login = %v", req.Enabled)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"startWithWindows": s.app.AutostartNow(),
+		"startAtLogin":     s.app.AutostartNow(),
 		"command":          s.app.AutostartCmd(),
-		"location":         `HKCU\Software\Microsoft\Windows\CurrentVersion\Run value "BuildFlow"`,
+		"location":         s.app.AutostartLocation(),
 	})
 }
 

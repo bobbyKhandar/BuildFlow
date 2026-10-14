@@ -12,7 +12,7 @@ what you have saved, what is still missing and what the next session needs.
 That gets harder every time you switch projects or start a fresh chat.
 
 BuildFlow gives each project a place to keep that context. It is a local
-Windows workbench that organises your briefs, designs, technology decisions,
+Windows and Linux (x86_64) workbench that organises your briefs, designs, technology decisions,
 work packages, prompts and AI answers by phase. You can move between projects
 and return to the saved record of each one, instead of relying on memory or
 scrolling through old conversations.
@@ -70,11 +70,12 @@ You can open the same files in Obsidian, edit them in your usual editor, keep
 them in Git or copy the folder for backup. If a file changes outside BuildFlow,
 save conflict checks help you resolve the competing edits.
 
-BuildFlow runs from one self-contained Windows `.exe` and opens a local
-browser interface at **<http://127.0.0.1:8765>**. There is no separate runtime,
-database or web server to install, and no AI API key or BuildFlow cloud account
-to configure. Closing the browser tab leaves the application running in the
-notification area, ready to reopen when you return to your projects.
+BuildFlow runs from one self-contained executable for Windows or Linux and
+opens a local browser interface at **<http://127.0.0.1:8765>**. There is no
+separate runtime, database or web server to install, and no AI API key or
+BuildFlow cloud account to configure. Closing the browser tab leaves the
+application running in the system tray, ready to reopen when you return to your
+projects.
 
 ## Quick start
 
@@ -105,10 +106,12 @@ notification area, ready to reopen when you return to your projects.
 - [A routine you can reuse across projects](#a-routine-you-can-reuse-across-projects)
 - [Quick start](#quick-start)
 - [Install](#install)
+- [Install on Linux](#install-on-linux)
 - [First run and choosing a workspace](#first-run-and-choosing-a-workspace)
 - [Opening BuildFlow again](#opening-buildflow-again)
 - [Quitting](#quitting)
 - [Starting with Windows](#starting-with-windows)
+- [Starting at login on Linux](#starting-at-login-on-linux)
 - [The workflow](#the-workflow)
 - [Workspace layout](#workspace-layout)
 - [Prompt templates: global and local](#prompt-templates-global-and-local)
@@ -163,6 +166,44 @@ ways through it:
 - **Or** right-click the `.exe` → Properties → **Unblock** at the bottom, if
   your Windows shows that checkbox. If Smart App Control still refuses, see
   Microsoft Support on turning it off for a program you trust.
+
+---
+
+## Install on Linux
+
+Download and extract `BuildFlow-linux-amd64.tar.gz` to a stable user-owned
+location. The archive includes the executable and Linux instructions; no Go or
+compiler is needed to run it.
+
+```sh
+mkdir -p "$HOME/.local/opt/buildflow"
+tar -xzf BuildFlow-linux-amd64.tar.gz -C "$HOME/.local/opt/buildflow"
+chmod +x "$HOME/.local/opt/buildflow/BuildFlow"
+"$HOME/.local/opt/buildflow/BuildFlow"
+```
+
+BuildFlow opens <http://127.0.0.1:8765> on first run and listens on loopback
+only. Type an absolute POSIX path or use the portal folder picker. The picker
+requires a session D-Bus FileChooser portal version 3 or later; typing a path
+works without it.
+
+`xdg-open` opens browser links, folders, and logs. Clipboard copying uses
+`wl-copy` on Wayland, or `xclip`/`xsel` on X11. A StatusNotifier tray host is
+optional; if it is unavailable, the web interface still has a Quit control.
+BuildFlow retries tray registration if the watcher starts or restarts. It does
+not modify Omarchy or Hyprland configuration.
+
+For login startup, keep the executable at a stable absolute path and enable
+**Start at login** in Settings. The XDG entry runs BuildFlow minimized without
+opening a browser. If you move the executable, disable and re-enable the setting
+to update the recorded path. See [README-linux.md](README-linux.md) for removal,
+application data paths, and helper installation details.
+
+BuildFlow stores Linux settings in `$XDG_CONFIG_HOME/buildflow` (default
+`~/.config/buildflow`) and logs/API token in `$XDG_STATE_HOME/buildflow`
+(default `~/.local/state/buildflow`). Relative XDG values are ignored. Set
+`BUILDFLOW_HOME` for a unified isolated root; isolated runs keep their login
+entry under that root and receive a separate loopback port.
 
 ---
 
@@ -252,6 +293,18 @@ HKCU\Software\Microsoft\Windows\CurrentVersion\Run
 
 If you move `BuildFlow.exe`, switch it off and on again so the recorded path is
 correct.
+
+## Starting at login on Linux
+
+**Settings → Start at login**, or the tray menu item, writes
+`$XDG_CONFIG_HOME/autostart/buildflow.desktop` (default
+`~/.config/autostart/buildflow.desktop`). The entry uses an absolute quoted
+executable path and `--minimized`, so login startup does not open the browser.
+
+Keep the executable at a stable location. If it moves, turn the setting off and
+on again to record the new path. With `BUILDFLOW_HOME` set, the startup entry is
+stored under that isolated root instead of the normal user's autostart folder.
+For install, helper, and removal instructions, see [README-linux.md](README-linux.md).
 
 ---
 
@@ -764,7 +817,7 @@ log always says which files it is using; **Settings** shows all of them.
 ## Command line flags
 
 ```
-BuildFlow.exe [options]
+BuildFlow[.exe] [options]
 
   --console        attach to the parent console and echo logs
   --minimized      start in the notification area without opening a browser
@@ -791,8 +844,8 @@ powershell -ExecutionPolicy Bypass -File build.ps1
 ```
 
 Go 1.24 or newer is the only requirement, and only on the build machine. The
-result is a self-contained `.exe` with no runtime dependencies - standard
-library only, no third-party modules.
+Windows result is a self-contained `.exe`; the Linux build uses a pure-Go D-Bus
+module and is packaged by `build-linux.sh`.
 
 ## Verification
 
@@ -819,13 +872,14 @@ by editing a file underneath a running instance.
 
 Honest list of what is not there:
 
-- **Windows only.** The tray icon, native folder picker, single-instance mutex
-  and sign-in shortcut all use Win32 directly. There is no build for macOS or
-  Linux, and no plan for one.
-- **The folder picker is the old shell dialog** (`SHBrowseForFolder`), not the
-  modern one. It works, but it looks like Windows 7 and it does not let you type
-  a new folder name into it. Typing the path into the Settings box works fine
-  and is the recommended route.
+- **Desktop integration depends on the platform.** Linux folder selection
+  requires a FileChooser portal v3 or later; its tray requires a running
+  StatusNotifier watcher; clipboard support requires `wl-copy` on Wayland or
+  `xclip`/`xsel` on X11. BuildFlow remains usable through its web interface
+  without these optional services.
+- **The Windows folder picker is the older shell dialog** (`SHBrowseForFolder`)
+  and does not let you type a new folder name into it. Typing a path into
+  Settings works on every supported platform.
 - **No AI integration at all**, by design. You paste prompts into your chatbot
   and paste the answers back. BuildFlow makes no model calls and needs no AI
   API key; any charges come from the AI service you choose.

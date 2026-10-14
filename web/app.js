@@ -61,7 +61,7 @@
       });
     } catch (err) {
       throw new Error('Cannot reach the BuildFlow server on ' + location.origin +
-        '. Is BuildFlow.exe still running? (' + err.message + ')');
+        '. Is BuildFlow still running? (' + err.message + ')');
     }
     const text = await res.text();
     let body = null;
@@ -1287,7 +1287,7 @@
     $('workspaceValue').textContent = s.workspacePath ? s.workspacePath : 'not set';
     $('workspaceChip').title = s.workspacePath || 'Choose the BuildFlow workspace folder';
     $('openOnStartToggle').checked = !!s.openBrowserOnStart;
-    $('autostartToggle').checked = !!s.startWithWindows;
+    $('autostartToggle').checked = typeof s.startAtLogin === 'boolean' ? s.startAtLogin : !!s.startWithWindows;
     $('cfgPath').textContent = s.configFile;
     $('logPath').textContent = s.logFile;
     $('tokenPath').textContent = s.tokenFile;
@@ -1498,8 +1498,9 @@
       const wanted = e.target.checked;
       try {
         const out = await api('/api/settings/autostart', { method: 'POST', body: { enabled: wanted } });
-        e.target.checked = out.startWithWindows;
-        toast('Start with Windows is now ' + (out.startWithWindows ? 'on' : 'off') + '. Command: ' + out.command, 'ok', 6000);
+        const enabled = typeof out.startAtLogin === 'boolean' ? out.startAtLogin : !!out.startWithWindows;
+        e.target.checked = enabled;
+        toast('Start at login is now ' + (enabled ? 'on' : 'off') + '. ' + out.command, 'ok', 6000);
       } catch (err) {
         e.target.checked = !wanted;
         toast('Could not change the setting: ' + err.message, 'err');

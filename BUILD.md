@@ -1,18 +1,24 @@
 # Building BuildFlow
 
-BuildFlow is a single Go program. It uses the standard library only, so there
-is nothing to download and no module cache to warm up beyond the toolchain
-itself.
+BuildFlow is a single Go program. The Windows build uses the standard library;
+Linux uses the pure-Go `godbus` module for session D-Bus integration. Both
+platform builds are self-contained at runtime.
 
 ## Requirements
 
 | Requirement | Notes |
 | --- | --- |
 | Windows 11 | Windows 10 build 17763 or newer should also work. |
+| Linux x86_64 | Graphical session with session D-Bus recommended; desktop helpers are optional. |
 | Go 1.24 or newer to *build* | Only needed on the build machine. The `.exe` has no runtime dependencies. |
 | PowerShell 5.1 or newer | For `build.ps1` and `scripts\verify.ps1`. |
 
+The Linux build script also requires Bash and `tar` on the build machine.
+
 End users need none of this. They run `BuildFlow.exe`.
+
+Linux users run the standalone executable in `dist/BuildFlow-linux-amd64.tar.gz`;
+see [README-linux.md](README-linux.md).
 
 ## One command
 
@@ -121,6 +127,25 @@ Two things to be clear about:
   account only. No administrator rights and no machine-wide change are involved,
   and removing the certificate from both stores reverses it completely.
 
+## Linux build and archive
+
+On a Linux build host with Go 1.24+, run:
+
+```sh
+./build-linux.sh
+```
+
+The script formats Go sources, runs `go vet ./...` and `go test ./...`, builds
+Linux x86_64 and cross-compiles Windows amd64, then writes
+`dist/BuildFlow-linux-amd64.tar.gz`. The archive contains `BuildFlow` and
+`README-linux.md`. `CGO_ENABLED=0` keeps the executable independent of a C
+runtime or development packages. The pure-Go D-Bus dependency is linked into
+the executable; the end user's session still needs D-Bus for the portal and
+tray features.
+
+The existing `build.ps1`, `scripts/verify.ps1`, and `scripts/sign.ps1` remain the
+Windows build, verification, and signing workflow.
+
 ## Repository layout
 
 ```text
@@ -128,7 +153,7 @@ main.go                      process wiring: flags, mutex, tray, shutdown
 internal/appdata/            settings, log folder and token file
 internal/logging/            levelled logging with rotation
 internal/server/             HTTP server, security chain, REST handlers
-internal/winutil/            Windows shell calls (tray, mutex, autostart, picker)
+internal/winutil/            platform desktop calls (Windows and Linux build tags)
 internal/workspace/          every file operation, path resolution, templates
 internal/workspace/starter/  the six built-in starter prompt templates
 web/                         the embedded HTML, CSS and JavaScript workbench

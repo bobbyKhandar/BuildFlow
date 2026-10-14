@@ -220,6 +220,12 @@ func (i *Instance) Release() {
 	globalInstance = nil
 }
 
+// SetHandoffHandler is unused on Windows; second launches open the running URL.
+func (i *Instance) SetHandoffHandler(handler func()) {}
+
+// HandoffOnAcquire reports whether AcquireInstance delivered a desktop handoff.
+func HandoffOnAcquire() bool { return false }
+
 // ---------------------------------------------------------------------------
 // Start with Windows (HKCU Run key, no administrator rights needed)
 // ---------------------------------------------------------------------------
@@ -243,6 +249,11 @@ func AutostartCommand() string {
 	// --minimized starts silently in the tray; the browser is opened from the
 	// tray menu instead of automatically at sign-in.
 	return fmt.Sprintf("\"%s\" --minimized", exe)
+}
+
+// AutostartLocation describes the per-user sign-in entry.
+func AutostartLocation() string {
+	return `HKCU\Software\Microsoft\Windows\CurrentVersion\Run value "BuildFlow"`
 }
 
 // AutostartEnabled reports whether the sign-in entry currently exists.
@@ -505,14 +516,15 @@ type TrayItem struct {
 // "Open BuildFlow" and "Quit BuildFlow" available after the browser tab is
 // closed.
 type Tray struct {
-	mu        sync.Mutex
-	hwnd      syscall.Handle
-	iconID    uint32
-	items     []TrayItem
-	handlers  map[string]func()
-	hidden    bool
-	started   bool
-	className string
+	mu           sync.Mutex
+	hwnd         syscall.Handle
+	iconID       uint32
+	items        []TrayItem
+	handlers     map[string]func()
+	hidden       bool
+	started      bool
+	className    string
+	errorHandler func(error)
 }
 
 var (
@@ -529,6 +541,9 @@ func (t *Tray) On(id string, fn func()) {
 	}
 	t.handlers[id] = fn
 }
+
+// SetErrorHandler accepts an optional callback for recoverable tray errors.
+func (t *Tray) SetErrorHandler(fn func(error)) { t.mu.Lock(); t.errorHandler = fn; t.mu.Unlock() }
 
 // SetItems replaces the context menu contents.
 func (t *Tray) SetItems(items []TrayItem) {
