@@ -19,7 +19,8 @@ type llmKeyRequest struct {
 }
 
 type llmChatRequest struct {
-	Messages []llm.Message `json:"messages"`
+	Messages    []llm.Message `json:"messages"`
+	RequireFree bool          `json:"requireFree,omitempty"`
 }
 
 func (s *Server) handleGetLLMConfig(w http.ResponseWriter, _ *http.Request) {
@@ -108,7 +109,11 @@ func (s *Server) handleLLMChat(w http.ResponseWriter, r *http.Request) {
 	if !readBody(w, r, &req) {
 		return
 	}
-	result, err := manager.Complete(r.Context(), req.Messages)
+	complete := manager.Complete
+	if req.RequireFree {
+		complete = manager.CompleteFree
+	}
+	result, err := complete(r.Context(), req.Messages)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, err.Error())
 		return

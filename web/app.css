@@ -459,3 +459,14 @@ code { background: var(--bg-4); padding: 1px 5px; border-radius: 3px; color: #b9
 .md-preview a { color: var(--accent-2); }
 
 .muted-tag { color: var(--fg-faint); }
+.structured-view details, .prompt-sources details { margin: .6rem 0; padding: .5rem .75rem; border: 1px solid var(--line); border-radius: 6px; }
+.structured-view summary, .prompt-sources summary { cursor: pointer; overflow-wrap: anywhere; }
+.structured-view dl { margin: .6rem 0; }
+.structured-view dt { font-weight: 600; margin-top: .65rem; }
+.structured-view dd { margin-left: 1rem; }
+.prompt-sources { flex-basis: 100%; min-width: 0; }
+.block-text, #outputRaw pre, .slot pre { white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
+.structured-view .block-text { font: inherit; margin: .4rem 0; }
+.generated-summary { margin-top: 1rem; padding: 1rem; border: 1px solid var(--line); border-radius: 6px; }
+.size-warning { color: var(--warn, #b96010); }
+.pane-toolbar button[aria-pressed="true"] { outline: 2px solid currentColor; outline-offset: 1px; }

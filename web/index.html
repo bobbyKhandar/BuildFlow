@@ -125,7 +125,7 @@
 
         <div class="assemble-bar">
           <button class="btn btn-sm btn-primary" id="btnAssemble">Assemble prompt</button>
-          <button class="btn btn-sm" id="btnCopyPrompt" title="Copy the assembled prompt to the clipboard">Copy prompt</button>
+          <button class="btn btn-sm" id="btnCopyPrompt" title="Copy the assembled prompt to the clipboard">Copy assembled prompt</button>
           <button class="btn btn-sm" id="btnSnapshot">Save snapshot</button>
           <button class="btn btn-sm btn-quiet" id="btnLoadSnapshot">Load snapshot</button>
           <span class="pane-hint" id="assembledInfo"></span>
@@ -148,7 +148,7 @@
             <textarea id="templateText" class="editor editor-small" spellcheck="false"></textarea>
             <details class="mini">
               <summary>Available placeholders</summary>
-              <p class="pane-hint">handoff uses a fixed projection for the current stage and selected scope/package. Custom whole-output placeholders bypass that projection and may increase prompt size; content is never automatically trimmed.</p>
+              <p class="pane-hint">handoff selects compact context using fixed Go field lists for the current stage and package. Inspect the selected data, contributors, fallbacks, and unresolved links in Prompt size and compact sources. Whole-output placeholders bypass this projection. Size warnings start at 32k estimated tokens (48k for Stage 4), using about 4 characters per token; content is never automatically trimmed.</p>
               <div class="tokens" id="tokenList"></div>
             </details>
           </div>
@@ -177,18 +177,26 @@
         <div class="pane-toolbar">
           <button class="btn btn-sm" data-save="output">Save</button>
           <button class="btn btn-sm btn-quiet" data-copy="output">Copy</button>
-          <button class="btn btn-sm btn-quiet" data-md="output">Markdown preview</button>
+          <button class="btn btn-sm" id="btnOutputBlocks">Blocks</button>
+          <button class="btn btn-sm" id="btnOutputFull">Full output</button>
+          <button class="btn btn-sm" id="btnOutputEdit">Edit Markdown</button>
+          <button class="btn btn-sm" id="btnCopyCoding" hidden>Copy coding prompt</button>
+          <button class="btn btn-sm" id="btnGenerateSummary" hidden>Generate summary</button>
           <button class="btn btn-sm btn-quiet" data-reload="output">Reload from disk</button>
           <span class="pane-spacer"></span>
           <button class="btn btn-sm btn-accent" id="btnDetectPackages" hidden>Split into work packages</button>
         </div>
         <textarea id="outputText" class="editor" spellcheck="false" placeholder="Paste what the AI gave you here."></textarea>
+        <div class="muted small" id="outputViewStatus" role="status"></div>
+        <div class="structured-view" id="outputBlocks" hidden></div>
         <div class="md-preview" id="outputPreview" hidden></div>
+        <details id="outputRaw" hidden><summary>Raw structured footer</summary><pre></pre></details>
+        <aside id="generatedSummary" class="generated-summary" hidden aria-live="polite"></aside>
       </div>
     </details>
 
     <!-- STEP 4 WORK PACKAGES ------------------------------------------- -->
-    <details class="pane" id="paneStep4" hidden>
+    <details class="pane" id="paneStep4" hidden open>
       <summary>
         <span class="pane-name">Work packages</span>
         <span class="pane-path" id="step4Path">packages/</span>
@@ -208,8 +216,7 @@
         <div id="step4Slots"></div>
         <p class="muted small">
           Fill in a slot's <strong>output</strong> to create that work package in Step 5.
-          A new empty slot appears once you start filling one in. Saving a package also copies
-          it into that package's Step 5 input.
+          A new empty slot appears once you start filling one in. Saved package sources feed Stage 5 independently of the combined answer.
         </p>
       </div>
     </details>
@@ -426,6 +433,7 @@
 
 <div class="toasts" id="toasts" aria-live="polite"></div>
 
+<script src="structured.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
