@@ -485,6 +485,41 @@ type putDocRequest struct {
 	Force    bool   `json:"force"`
 }
 
+type structuredPreviewRequest struct {
+	Kind      string `json:"kind"`
+	Stage     string `json:"stage"`
+	PackageID string `json:"packageId"`
+	Content   string `json:"content"`
+}
+
+func (s *Server) handleStructuredPreview(w http.ResponseWriter, r *http.Request) {
+	if !s.requireWorkspace(w) {
+		return
+	}
+	var req structuredPreviewRequest
+	if !readBody(w, r, &req) {
+		return
+	}
+	id := r.PathValue("id")
+	if _, err := workspace.Resolve(req.Kind, req.Stage, req.PackageID, id); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if _, err := s.svc.GetProject(id); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	// Inspect the supplied content directly; a draft need not exist on disk.
+	result := s.svc.InspectDocument(id, workspace.Doc{
+		Kind: req.Kind, Stage: req.Stage, Package: req.PackageID, Content: req.Content,
+	})
+	if result == nil {
+		writeError(w, http.StatusBadRequest, "document target does not support structured data")
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
 func (s *Server) handlePutDoc(w http.ResponseWriter, r *http.Request) {
 	if !s.requireWorkspace(w) {
 		return

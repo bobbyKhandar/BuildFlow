@@ -221,6 +221,7 @@ func (s *Server) buildMux() http.Handler {
 	mux.HandleFunc("GET /api/projects/{id}/doc", s.handleGetDoc)
 	mux.HandleFunc("PUT /api/projects/{id}/doc", s.handlePutDoc)
 	mux.HandleFunc("DELETE /api/projects/{id}/doc", s.handleDeleteDoc)
+	mux.HandleFunc("POST /api/projects/{id}/structured/preview", s.handleStructuredPreview)
 	mux.HandleFunc("POST /api/projects/{id}/detect-packages", s.handleDetectPackages)
 	mux.HandleFunc("POST /api/projects/{id}/import-packages", s.handleImportPackages)
 	mux.HandleFunc("POST /api/projects/{id}/packages", s.handleCreatePackage)
