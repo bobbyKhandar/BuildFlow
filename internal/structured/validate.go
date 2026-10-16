@@ -63,6 +63,14 @@ func intersects(a, b []string) bool {
 }
 func pathAt(path string, i int) string { return fmt.Sprintf("%s/%d", path, i) }
 
+func recordPackagePath(path string) string {
+	parts := strings.SplitN(path, "/", 5)
+	if len(parts) == 5 && parts[0] == "" && parts[1] == "blocks" && parts[2] == "packages" && parts[3] != "" {
+		return strings.Join(parts[:4], "/")
+	}
+	return ""
+}
+
 // Validate checks the schema as well as semantic links. References must be
 // validated upstream artifacts, in any order. Local effective catalogues take
 // precedence. No external files, URLs, or commands in the data are followed.
@@ -119,10 +127,27 @@ func Validate(doc *Envelope, references ...*Envelope) []Diagnostic {
 			v.available[kind] = true
 		}
 	}
+	seenPackageRecords := map[[3]string]bool{}
 	collectCatalogues(v.blocks, "/blocks", v.local, func(kind, id, path string, old record, row map[string]any) {
-		// Copied acceptance can legitimately apply to multiple packages.
-		if kind == "acceptance" && doc.Stage == "step-04" && old.value["statement"] == row["statement"] && strings.Split(old.path, "/acceptance/")[0] != strings.Split(path, "/acceptance/")[0] {
-			return
+		if doc.Stage == "step-04" && (kind == "acceptance" || kind == "test") {
+			oldPackage, pkg := recordPackagePath(old.path), recordPackagePath(path)
+			if oldPackage != "" && pkg != "" {
+				seenPackageRecords[[3]string{kind, id, oldPackage}] = true
+				key := [3]string{kind, id, pkg}
+				repeated := seenPackageRecords[key]
+				seenPackageRecords[key] = true
+				equivalent := reflect.DeepEqual(old.value, row)
+				// Criteria may narrow their links to each package, but both
+				// copies must agree with the canonical Stage 3 criterion.
+				if kind == "acceptance" {
+					if source, ok := v.upstream[kind][id]; ok {
+						equivalent = criterionCopy(old.value, source.value) && criterionCopy(row, source.value)
+					}
+				}
+				if !repeated && equivalent {
+					return
+				}
+			}
 		}
 		v.add(pointer(path, "id"), "duplicate_id", "duplicate "+kind+" ID "+id)
 		if !reflect.DeepEqual(old.value, row) {

@@ -287,6 +287,84 @@ func TestCriteriaUniqueWithinEachPackage(t *testing.T) {
 		t.Fatal(r.Diagnostics)
 	}
 }
+
+func TestStage4SharedPackageRecords(t *testing.T) {
+	refs := linkedFixtures(t)[:4]
+	design := fixtureJSON(t, "step-03")
+	b := object(design["blocks"])
+	clone := func(value any) map[string]any {
+		t.Helper()
+		data, err := json.Marshal(value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var copy map[string]any
+		if err := json.Unmarshal(data, &copy); err != nil {
+			t.Fatal(err)
+		}
+		return copy
+	}
+	m2 := clone(b["modules"].([]any)[0])
+	m2["id"] = "M-2"
+	b["modules"] = append(b["modules"].([]any), m2)
+	b["build_batches"] = []any{[]any{"M-1", "M-2"}}
+	object(b["acceptance"].([]any)[0])["module_ids"] = []any{"M-1", "M-2"}
+	object(b["requirement_coverage"].([]any)[0])["module_ids"] = []any{"M-1", "M-2"}
+	s3 := Parse(encoded(t, design), Target{Stage: "step-03", Scope: "stage", References: refs[:3]})
+	if s3.Status != Valid {
+		t.Fatal(s3.Diagnostics)
+	}
+	refs[3] = s3.Artifact
+
+	for _, tt := range []struct {
+		name, code, path string
+		change           func(map[string]any, map[string]any)
+	}{
+		{"identical shared tests", "", "", func(_, _ map[string]any) {}},
+		{"conflicting test", "conflict", "/blocks/packages/1/tests/0", func(_, p2 map[string]any) {
+			object(p2["tests"].([]any)[0])["assertions"] = []any{"Data may be lost."}
+		}},
+		{"conflicting criterion links", "conflict", "/blocks/packages/1/acceptance/0", func(_, p2 map[string]any) {
+			object(p2["acceptance"].([]any)[0])["test_ids"] = []any{"T-other"}
+		}},
+		{"duplicate test in first package", "duplicate_id", "/blocks/packages/0/tests/1/id", func(p1, _ map[string]any) {
+			p1["tests"] = append(p1["tests"].([]any), p1["tests"].([]any)[0])
+		}},
+		{"duplicate test in second package", "duplicate_id", "/blocks/packages/1/tests/1/id", func(_, p2 map[string]any) {
+			p2["tests"] = append(p2["tests"].([]any), p2["tests"].([]any)[0])
+		}},
+		{"duplicate criterion in second package", "duplicate_id", "/blocks/packages/1/acceptance/1/id", func(_, p2 map[string]any) {
+			p2["acceptance"] = append(p2["acceptance"].([]any), p2["acceptance"].([]any)[0])
+		}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			v := fixtureJSON(t, "step-04")
+			blocks := object(v["blocks"])
+			p1 := object(blocks["packages"].([]any)[0])
+			p2 := clone(p1)
+			p2["id"] = "P02"
+			p2["module_ids"] = []any{"M-2"}
+			object(p2["acceptance"].([]any)[0])["module_ids"] = []any{"M-2"}
+			blocks["packages"] = append(blocks["packages"].([]any), p2)
+			blocks["build_batches"] = []any{[]any{"P01", "P02"}}
+			tt.change(p1, p2)
+			r := Parse(encoded(t, v), Target{Stage: "step-04", Scope: "stage", References: refs})
+			if tt.code == "" {
+				if r.Status != Valid || hasCode(r, "duplicate_id") {
+					t.Fatal(r.Diagnostics)
+				}
+				return
+			}
+			for _, d := range r.Diagnostics {
+				if r.Status == Invalid && d.Code == tt.code && d.Path == tt.path {
+					return
+				}
+			}
+			t.Fatalf("expected %s at %s: %+v", tt.code, tt.path, r.Diagnostics)
+		})
+	}
+}
+
 func TestStage5RejectsMissingKnownPackageAndContracts(t *testing.T) {
 	refs := linkedFixtures(t)
 	v := fixtureJSON(t, "step-05")
