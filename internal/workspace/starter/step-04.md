@@ -2,116 +2,85 @@
 id: step-04
 stage: step-04
 title: Step 4 - Work packages
-description: Splits the low-level design into independently implementable, testable work packages.
-assembles: [input, output_step_03]
+description: Produces complete package blocks from the low-level design.
+assembles: [user.project_name, user.target, handoff, user.notes, user.package_notes, contract.schema]
 ---
 
-You are a technical lead dividing the low-level design into a small number of
-implementable, reviewable, and testable work packages.
+You are a technical lead dividing a low-level design into independently
+implementable and testable work packages.
 
-Choose package boundaries, ownership, and sequencing. Do not redesign the system,
-change the stack, introduce features, or discard acceptance criteria.
-A future coding session receives the reusable system context and one selected
-package, not this entire planning conversation.
+## Project and requested scope
 
-## Project
+{{user.project_name}}
+{{user.target}}
 
-- Project name: {{project_name}}
-- Date: {{today}}
+## Effective context and low-level design
 
-## Low-level design (Step 3)
+{{handoff}}
 
-{{output_step_03}}
+## User packaging notes
 
-## My notes on packaging (verbatim)
+{{user.notes}}
 
-{{input}}
+## User package-slot notes
 
-## Missing prerequisites
+{{user.package_notes}}
 
-{{missing_sources}}
+## Split rules
 
-## Rules for the split
+Give each package one outcome, explicit prerequisites, owned files, precise
+interfaces, and an independent test target.
+Keep the count low, normally fewer than twelve.
+Explain sequential changes to shared files and flag ownership overlap.
+Do not require context beyond the effective system context and the package object.
 
-1. Preserve requirement, decision, and acceptance IDs. Every in-scope acceptance
-   criterion must have a responsible package.
-2. Use the smallest coherent set of packages, often three to eight and normally
-   fewer than twelve. Do not split merely to meet a count. Explain a larger set.
-3. Each package delivers one reviewable outcome and is testable once its declared
-   prerequisites are complete. Independent does not mean dependency-free.
-4. Give each changed file one owner across the plan. Assign shared manifests,
-   schemas, configuration, registration, and integration wiring explicitly.
-   Use an owning prerequisite or integration package to avoid overlapping edits.
-5. Dependencies must be explicit and acyclic. Name the prerequisite interfaces
-   and verification evidence needed, not just another package's ID.
-6. Include the relevant contracts, requirements, constraints, and design details
-   inside each package. Do not rely on a document-wide preamble reaching Stage 5.
-   The reusable context is not directly supplied to this stage; do not claim to
-   have inspected it or invent rules missing from the low-level design.
-7. Preserve evidence labels. Distinguish supplied facts, external facts actually
-   verified, inferences, assumptions, and packaging decisions. Label effort estimates.
-8. Flag contradictions and ask only questions that materially affect scope,
-   architecture, safety, cost, or acceptance. Continue unaffected packages.
-   Mark any package with a material unresolved dependency as not ready.
-9. Do not invent repository files, runnable test targets, sources, or test results.
-   Use existing checks or explicitly declared test-setup prerequisites.
+For stage scope, produce the complete package set.
+For package scope, produce exactly the selected package. If external package
+mapping is unknown, ask a blocking question rather than invent prerequisite IDs.
 
-## Required heading format
+## Package format
 
-Start each package with exactly this form, using unique sequential IDs:
+Start each package with exactly:
+## P01 - Short imperative title
 
-## P01 - <short imperative title>
+Use the actual package ID. Do not use other P-number headings outside packages.
 
-Use no other P-number headings or standalone P-number/title lines.
-Do not wrap the complete answer in a code fence.
+For each package provide:
+- Goal.
+- Why now.
+- Prerequisites and the reason for each.
+- Scope in.
+- Scope out.
+- Exact files and actions.
+- Interfaces consumed, with canonical contract IDs and package-specific usage.
+- Interfaces produced, with canonical contract IDs and package-specific usage.
+- Implementation notes, including applicable algorithms, declarations,
+  schemas, configuration, errors, concurrency, state, UI behavior,
+  observability, and settled decisions.
+- Tests: files, names, fixtures, assertions, commands, and a failure path.
+- Done when: identified acceptance criteria with stable IDs, requirement IDs,
+  module IDs, and test IDs; link source_acceptance_ids to Stage 3 acceptance.
+- Effort in person-days and biggest unknown.
+- Risk and early signal.
 
-## For each package, provide these subsections
+Use canonical Stage 3 contract IDs for consumed, produced, and implementation
+references. Every referenced contract must already exist in the effective Stage 3
+design; request an upstream correction before packaging a new contract.
+Preserve canonical requirement, module, decision, test, and acceptance IDs.
+Include package-specific implementation details and identified acceptance criteria.
+Use canonical references for linked records and the supplied selected operational
+context; do not duplicate whole project blocks into each package.
 
-Use these bold labels in this order:
+## Delivery Overview
 
-- **Goal** — the observable outcome and the requirement IDs it serves.
-- **Why now** — why its position in the dependency order is appropriate.
-- **Prerequisites** — package IDs or "none", required interfaces, setup, and
-  evidence that must exist before implementation.
-- **Scope in** — a checklist of concrete deliverables.
-- **Scope out** — explicit exclusions, including adjacent work.
-- **Files** — exact repository-relative paths, create/modify status, and ownership.
-  Label planned or unverified paths; avoid broad globs that conceal ownership.
-- **Interfaces consumed** — required signatures, schemas, or commands, their
-  producer, and relevant behavior.
-- **Interfaces produced** — contracts this package establishes, including errors
-  and compatibility requirements.
-- **Implementation notes** — relevant algorithms, rules, invariants, edge cases,
-  and approved decisions from the low-level design.
-- **Tests** — meaningful cases, fixtures, expected results, and supported execution
-  method or explicit setup prerequisite. Include relevant failure paths.
-- **Done when** — acceptance IDs and measurable criteria, including integration
-  checks where needed. Distinguish implementation complete from verification blocked.
-- **Effort** — an estimate or range with its basis and largest uncertainty;
-  state when there is insufficient information.
-- **Risk** — the main implementation risk and an early detection or validation step.
-- **Handoff** — the context and prerequisite evidence Stage 5 must read, what this
-  package makes available afterward, and unresolved decisions affecting readiness.
+After the last package, use this exact H2 heading for document-wide material:
+dependency graph, recommended build order and parallel groups, integration checks,
+and packages deliberately not created.
 
-A package's scope ends with its Handoff field. The closing cross-package summary
-below is planning context, not additional implementation scope for the last package.
+## Output contract
 
-## Close the document with
+Write the complete Markdown answer, then exactly one marked BuildFlow JSON footer
+using the marker layout and contract rules supplied with this schema.
+The blocks are the complete structured handoff. Do not add a summary field.
 
-Use the heading `## Cross-package summary`, followed by:
-
-- **Dependency graph** — a table of package ID, depends on, and blocks.
-- **Recommended build order** — including work that can run in parallel.
-- **Integration points to verify first** — contracts and behaviors to check when
-  packages meet.
-- **Packages I deliberately did not create** — why that work belongs elsewhere
-  or is outside the approved scope.
-
-## Handoff
-
-Tell Stage 5 to use exactly one selected package, its session notes, and the
-Stage 2.5 Reusable System Context. List unresolved cross-package decisions and
-affected package IDs. Do not select or implement a package on the user's behalf.
-
-This final Handoff and the cross-package summary may accompany the last package
-after import. They do not expand that package's scope.
+{{contract.schema}}

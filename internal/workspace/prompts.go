@@ -9,6 +9,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"buildflow/internal/structured"
 )
 
 // Template is a prompt template: the editable Markdown that becomes the
@@ -106,16 +108,37 @@ func frontMatterValue(meta, key string) string {
 }
 
 // tokenRe matches {{token}} placeholders in a template body.
-var tokenRe = regexp.MustCompile(`\{\{\s*([a-z0-9_]+)\s*\}\}`)
+var tokenRe = regexp.MustCompile(`\{\{\s*([a-z0-9_]+(?:\.[a-z0-9_]+)*)\s*\}\}`)
 
 // KnownTokens lists every placeholder BuildFlow substitutes, for documentation
 // and for the "unknown token" warning.
 var KnownTokens = []string{
+	"user.project_name", "user.use_case", "handoff", "user.notes",
+	"user.package_notes", "user.target", "contract.schema",
 	"project_name", "project_description", "project_id", "stage", "stage_num",
 	"stage_title", "generated_at", "today", "user_notes", "missing_sources",
 	"input", "system_context", "package_id", "package_title", "package_content",
 	"package_input", "output_step_01", "output_step_02", "output_step_02_5",
 	"output_step_03", "output_step_04", "previous_output",
+}
+
+// TokenHelp describes the registered projection and compatibility tokens in the editor.
+var TokenHelp = map[string]string{
+	"handoff":            "Fixed stage-specific projection for this consumer stage and selected scope/package. Field lists are registered in Go.",
+	"user.project_name":  "Project name from project.json.",
+	"user.use_case":      "Stage 1 input with legacy copied answers excluded.",
+	"user.notes":         "Current stage notes; Stage 5 uses only the selected package's notes.",
+	"user.package_notes": "Stage 4 slot notes keyed by package ID; package scope and Stage 5 include only the selected package.",
+	"user.target":        "Selected scope and package ID, including the established module mapping for Stage 4 package scope.",
+	"contract.schema":    "Complete compact output contract specialized to the stage, scope, and package.",
+}
+
+func init() {
+	for _, token := range KnownTokens {
+		if strings.HasPrefix(token, "output_") || token == "previous_output" || token == "system_context" || token == "package_content" {
+			TokenHelp[token] = "Compatibility token: bypasses the fixed handoff projection and can increase prompt size. Content is never automatically trimmed."
+		}
+	}
 }
 
 var knownTokenSet = func() map[string]bool {
@@ -297,7 +320,7 @@ func sourcesForStage(stage, pkg string) []placeholderSource {
 		}
 	case "step-02":
 		return []placeholderSource{
-			{token: "input", label: "Step 2 input (research brief and discussion)", kind: KindInput, stage: stage, hint: "Paste the research brief and your discussion notes."},
+			{token: "input", label: "Step 2 input (discussion notes)", kind: KindInput, stage: stage, hint: "Add your discussion notes; the research handoff is assembled separately."},
 			{token: "output_step_01", label: "Step 1 output (research brief)", kind: KindOutput, stage: "step-01", prereq: true, hint: "Save Step 1's output first."},
 		}
 	case "step-02-5":
@@ -405,14 +428,17 @@ func (s *Service) AssemblePrompt(project, stage, pkg string) (AssembledPrompt, e
 	if err != nil {
 		return AssembledPrompt{}, err
 	}
+	usedTokens := map[string]bool{}
 	usesHandoff := false
 	for _, match := range tokenRe.FindAllStringSubmatch(tmpl.Body, -1) {
+		usedTokens[match[1]] = true
 		if match[1] == "handoff" {
 			usesHandoff = true
 		}
 	}
 
 	values := map[string]string{
+		"user.project_name":   proj.Name,
 		"project_name":        proj.Name,
 		"project_id":          proj.ID,
 		"project_description": proj.Description,
@@ -458,10 +484,10 @@ func (s *Service) AssemblePrompt(project, stage, pkg string) (AssembledPrompt, e
 		body := doc.Content
 		// The input tokens carry the user's notes. Any auto-copied block from
 		// the previous step's output is context, not notes, so it is stripped
-		// here: the previous output already reaches the prompt through the
-		// {{output_step_XX}} tokens, and the "no notes yet" warning should
+		// here: the previous output reaches the prompt through the handoff or
+		// custom whole-output tokens, and the "no notes yet" warning should
 		// still fire when the user has written nothing of their own.
-		if src.token == "input" || src.token == "package_input" {
+		if src.token == "input" || src.token == "package_input" || strings.HasPrefix(src.token, "user.") {
 			body = UserNotes(doc.Content)
 		}
 		if src.token == "system_context" {
@@ -516,10 +542,55 @@ func (s *Service) AssemblePrompt(project, stage, pkg string) (AssembledPrompt, e
 	}
 
 	for _, src := range sourcesForStage(stage, pkg) {
-		if usesHandoff && src.token != "input" && src.token != "package_input" {
-			continue
+		if src.token == "input" || src.token == "package_input" {
+			alias := "user.notes"
+			if stage == "step-01" {
+				alias = "user.use_case"
+			}
+			if usedTokens[src.token] || usedTokens["user_notes"] || usedTokens[alias] {
+				value := load(src)
+				values[src.token], values[alias], values["user_notes"] = value, value, value
+			}
+		} else if usedTokens[src.token] || (src.token == "package_content" && usedTokens["previous_output"]) {
+			values[src.token] = load(src)
 		}
-		values[src.token] = load(src)
+	}
+	if usedTokens["user.package_notes"] {
+		notes := map[string]string{}
+		ids := []string{pkg}
+		if stage == "step-04" && pkg == "" {
+			var err error
+			ids, err = s.ListMarkdown(filepath.ToSlash(filepath.Join("projects", project, "inputs", "step-04")))
+			if err != nil {
+				return AssembledPrompt{}, err
+			}
+		}
+		for _, id := range ids {
+			if ValidatePackageID(id) != nil {
+				continue
+			}
+			notes[id] = load(placeholderSource{token: "user.package_notes", label: "Stage 4 notes for " + id, kind: KindStep4Input, stage: "step-04", pkg: id})
+		}
+		values["user.package_notes"], err = compactJSON(notes)
+		if err != nil {
+			return AssembledPrompt{}, err
+		}
+	}
+	target := structured.Target{Stage: stage, Scope: "stage"}
+	if pkg != "" {
+		if stage != "step-04" && stage != "step-05" {
+			return AssembledPrompt{}, fmt.Errorf("%s does not support package scope", stage)
+		}
+		if err := ValidatePackageID(pkg); err != nil {
+			return AssembledPrompt{}, err
+		}
+		target.Scope, target.PackageID = "package", pkg
+	}
+	if usedTokens["contract.schema"] {
+		values["contract.schema"], err = structured.Contract(target)
+		if err != nil {
+			return AssembledPrompt{}, err
+		}
 	}
 	var projection *PromptProjection
 	if usesHandoff {
@@ -539,11 +610,47 @@ func (s *Service) AssemblePrompt(project, stage, pkg string) (AssembledPrompt, e
 		values["handoff"] = payload
 	}
 
+	if usedTokens["user.target"] {
+		selection := map[string]any{"scope": target.Scope, "package_id": nil}
+		if pkg != "" {
+			selection["package_id"] = pkg
+		}
+		if stage == "step-04" && pkg != "" && projection != nil && projection.State == "ready" {
+			// Projection has already validated the combined mapping and any slot refinement.
+			kind, scope, id := KindOutput, "stage", ""
+			if s.Exists(KindPackage, "step-04", pkg, project) {
+				kind, scope, id = KindPackage, "package", pkg
+			}
+			doc, readErr := s.ReadDoc(kind, "step-04", id, project)
+			if readErr != nil {
+				return AssembledPrompt{}, readErr
+			}
+			parsed := structured.Parse(doc.Content, structured.Target{Stage: "step-04", Scope: scope, PackageID: id})
+			if parsed.Artifact != nil {
+				if blocks, ok := parsed.Artifact.Blocks.(*structured.WorkPackageBlocks); ok {
+					for _, work := range blocks.Packages {
+						if work.ID == pkg {
+							selection["module_ids"] = work.ModuleIDs
+						}
+					}
+				}
+			}
+		}
+		values["user.target"], err = compactJSON(selection)
+		if err != nil {
+			return AssembledPrompt{}, err
+		}
+	}
+	for _, token := range KnownTokens {
+		if usedTokens[token] && (strings.HasPrefix(token, "output_") || token == "previous_output" || token == "system_context" || token == "package_content") {
+			warnings = append(warnings, AssemblyWarning{Token: token, Label: "Custom template compatibility", Reason: "whole-output placeholder bypasses the fixed stage-specific handoff projection and may substantially increase prompt size", Severity: "warning", Hint: "Use {{handoff}} for the registered projection. Content is preserved in full; size warnings never trim it."})
+		}
+	}
+
 	// {{previous_output}} is the previous step's output, placed at the bottom of
 	// the assembled prompt so the whole thing can be copied to an LLM chatbot in
-	// one go. For Step 5 the "previous" output is the package itself, which is
-	// what the package's Step 5 input was seeded from.
-	if usesHandoff {
+	// one go. For Step 5 the "previous" output is the package itself.
+	if !usedTokens["previous_output"] {
 		values["previous_output"] = ""
 	} else if stage == "step-05" {
 		// For a package the "previous output" is the package itself. Strip the
@@ -562,10 +669,10 @@ func (s *Service) AssemblePrompt(project, stage, pkg string) (AssembledPrompt, e
 	// Extra saved outputs are available to every stage so a template can pull
 	// in a document the default wiring does not need.
 	for _, id := range []string{"step-01", "step-02", "step-02-5", "step-03", "step-04"} {
-		if usesHandoff {
-			break
-		}
 		token := "output_" + strings.ReplaceAll(id, "-", "_")
+		if !usedTokens[token] {
+			continue
+		}
 		if _, taken := values[token]; taken {
 			continue
 		}

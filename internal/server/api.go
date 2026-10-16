@@ -273,10 +273,11 @@ func (s *Server) handleStages(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = readable
 	writeJSON(w, http.StatusOK, map[string]any{
-		"stages":   out,
-		"readable": ids,
-		"tokens":   workspace.KnownTokens,
-		"starter":  workspace.StarterTemplateIDs(),
+		"stages":    out,
+		"readable":  ids,
+		"tokens":    workspace.KnownTokens,
+		"tokenHelp": workspace.TokenHelp,
+		"starter":   workspace.StarterTemplateIDs(),
 	})
 }
 
@@ -510,52 +511,7 @@ func (s *Server) handlePutDoc(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	s.afterWrite(id, req.Kind, req.Stage, req.Package, content)
 	writeJSON(w, http.StatusOK, doc)
-}
-
-// afterWrite feeds a freshly saved document into the place that needs it next:
-// a stage output into the following step's input, and a work package into that
-// package's Step 5 input notes. Both copies are marked and idempotent, so saving
-// the same output twice updates the copy instead of appending a second one.
-func (s *Server) afterWrite(project, kind, stage, pkg, content string) {
-	switch {
-	case kind == workspace.KindOutput:
-		next := workspace.NextStageID(stage)
-		if next == "" {
-			return
-		}
-		s.copyIntoInput(project, workspace.KindInput, next, "", content, stage)
-	case kind == workspace.KindPackage:
-		if err := workspace.ValidatePackageID(pkg); err != nil {
-			return
-		}
-		body := workspace.StripFrontMatter(content)
-		s.copyIntoInput(project, workspace.KindPackageInput, "step-05", pkg, body, "step-04")
-	}
-}
-
-// copyIntoInput merges source into the target input document and writes it back.
-// A failure is logged but never surfaced: the save the user asked for has already
-// succeeded, and a copy that could not be made is not a reason to undo it.
-func (s *Server) copyIntoInput(project, kind, stage, pkg, source, fromStage string) {
-	doc, err := s.svc.ReadDoc(kind, stage, pkg, project)
-	if err != nil {
-		s.log.Warnf("auto-copy: cannot read %s: %v", fromStage, err)
-		return
-	}
-	merged := workspace.MergeAutoCopy(doc.Content, source, fromStage)
-	if merged == doc.Content {
-		return
-	}
-	if _, err := s.svc.WriteDoc(workspace.WriteRequest{
-		Kind: kind, Stage: stage, Package: pkg, Project: project,
-		Content: merged, BaseHash: doc.Hash, Force: true,
-	}); err != nil {
-		s.log.Warnf("auto-copy: cannot write %s: %v", fromStage, err)
-		return
-	}
-	s.log.Infof("copied %s output into %s input", fromStage, stage)
 }
 
 func (s *Server) handleDeleteDoc(w http.ResponseWriter, r *http.Request) {

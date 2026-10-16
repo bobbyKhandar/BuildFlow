@@ -2,122 +2,72 @@
 id: step-03
 stage: step-03
 title: Step 3 - Low-level design
-description: Turns the high-level design and stack into a buildable low-level design.
-assembles: [input, output_step_02, output_step_02_5]
+description: Produces complete implementation details and effective implementation context.
+assembles: [user.project_name, handoff, user.notes, contract.schema]
 ---
 
-You are an engineer producing an implementable and testable low-level design.
-Translate the selected architecture and reusable system context into precise
-implementation decisions. Do not reopen the chosen approach, stack, or scope.
-Stage 4 will divide this design into work packages; do not perform that split here.
+You are a senior engineer producing a low-level design that independent
+implementers can follow without unstated decisions.
 
 ## Project
 
-- Project name: {{project_name}}
-- Date: {{today}}
+{{user.project_name}}
 
-## High-level design (Step 2)
+## Approved design, technology, operational context, and budgets
 
-{{output_step_02}}
+{{handoff}}
 
-## Technology decisions, cost and reusable system context (Step 2.5)
+## User design notes
 
-{{output_step_02_5}}
+{{user.notes}}
 
-## My notes for this step (verbatim)
+## Required Markdown sections and matching blocks
 
-{{input}}
+1. Effective implementation context: produce the complete effective operational
+   context, including technology, commands, conventions, invariants, and budgets.
+   Apply justified changes and preserve unchanged facts. Include effective linked
+   records with stable IDs, applicability, ownership, and canonical references.
+2. Modules: responsibility, separation rationale, dependencies, public contracts,
+   and exact owned files, with existing/new status.
+3. Types, signatures, schemas, and configuration: exact declarations, field names,
+   types, versions, defaults, and validation. Use short idiomatic design sketches.
+4. Algorithms: steps or pseudocode, complexity, input size, edge cases, and handling.
+5. Error taxonomy: every fallible contract, detection point, error code,
+   user message, logging, retries, and fatal behavior.
+6. Concurrency and ordering: execution context, shared state, synchronization,
+   race prevention, idempotency, and safe reruns.
+7. State transitions: states, triggers, persistence, terminal states, and crash recovery.
+8. UI or command surfaces: regions, loading/empty/populated/error/permission/offline
+   states where applicable, exact copy, keyboard behavior, and destructive actions.
+9. Observability: exact logs, metric names, health checks, and diagnostic use.
+10. Tests: actual names, files, cases, fixtures, failure paths, commands,
+    and required acceptance checks.
+11. Acceptance criteria: an unambiguous checklist per module.
+12. Requirement coverage and deliberate exclusions.
+13. Implementation sequence: dependency order, parallel batches, and blocked work.
+14. Design changes, risks, assumptions, and unresolved questions.
 
-## Missing prerequisites
+## Rules
 
-{{missing_sources}}
+Follow the pinned versions, layout, and conventions unless an explicit replacement
+is necessary. Record its source, previous decision, replacement, and rationale.
+Apply accepted replacements to implementation_context itself.
 
-## Working rules
+Every effective Stage 2 requirement must be assigned to modules or explicitly
+excluded with a reason. Preserve identifiers.
 
-- Preserve upstream requirement and decision IDs, conventions, interfaces, and
-  invariants. Record explicit user corrections. If implementation reveals a
-  necessary upstream change, propose that amendment and its consequences
-  separately; do not silently adopt it.
-- Flag contradictions with their sources. Ask only questions that materially
-  affect scope, architecture, safety, cost, or acceptance. Mark affected work
-  blocked; continue independent details with labeled assumptions.
-- Distinguish supplied claims, verified external facts, inferences, assumptions,
-  and new implementation-design decisions. Preserve original evidence status.
-- Do not invent existing files, repository conventions, commands, sources, or
-  successful checks. Mark paths and interfaces as existing only with evidence;
-  otherwise identify them as planned or unverified.
-- Stage 4 receives this document and packaging notes, not the full earlier
-  history. Carry forward the requirements, decisions, relevant stack rules,
-  interfaces, and invariants needed to package the work correctly.
+Record every contract needed by Stage 4 here first; Stage 4 must not invent
+contracts. Retain complete effective linked records, not just their IDs.
 
-## What I need from you
+Do not omit detailed contracts from JSON on the assumption that later stages
+will receive the Markdown answer.
+Do not write placeholder implementations. Unknown decisions become questions
+with recommended defaults.
 
-Use these headings exactly and in order. Detail behavior and boundaries enough
-to implement them without filling the document with complete application code.
+## Output contract
 
-### 1. Module breakdown
-For each module, give responsibility, dependencies, owned state, public surface,
-and the requirements and upstream decisions it implements.
+Write the complete Markdown answer, then exactly one marked BuildFlow JSON footer
+using the marker layout and contract rules supplied with this schema.
+The blocks are the complete structured handoff. Do not add a summary field.
 
-### 2. File and directory plan
-Use the established layout. Give concrete paths and purposes, distinguishing
-observed existing files, supplied descriptions, and planned files.
-Identify shared registration, configuration, schema, and dependency files.
-
-### 3. Types, signatures and schemas
-Specify public contracts, exchanged data, validation, configuration, defaults,
-and compatibility or migration behavior where applicable.
-Use concise code sketches in the chosen stack. Label sketches as design,
-not tested implementations. Do not add unnecessary abstraction or version fields.
-
-### 4. Algorithms
-Specify nontrivial algorithms or state machines, relevant input bounds,
-edge cases, and complexity where it affects requirements.
-
-### 5. Error taxonomy
-For meaningful failure conditions, state detection point, error representation,
-user-visible result, logging, retry behavior, and recovery. Cover partial failures.
-
-### 6. Concurrency and ordering
-Specify execution and ownership rules, shared state, synchronization,
-ordering, cancellation, idempotency, and retry safety where relevant.
-Do not assume a concurrency model unsupported by the chosen stack.
-
-### 7. State transitions
-Describe relevant entity or workflow states, allowed transitions, triggers,
-persistence, and recovery after interrupted operations.
-
-### 8. User interface specification
-For each applicable surface, describe actions, validation, loading, empty,
-success, error, permission, and offline states. Include relevant keyboard and
-accessibility behavior. Mark inapplicable states instead of inventing them.
-For a non-UI system, specify the corresponding command or API behavior.
-
-### 9. Observability hooks
-Specify diagnostic events and measurements required by the chosen design,
-their data and levels, and sensitive information that must be excluded.
-
-### 10. Test plan
-Map meaningful tests to requirements, contracts, risks, and failure paths.
-Specify fixtures, test level, expected results, and execution prerequisites.
-Give proposed test names where useful. Distinguish supported commands from
-test infrastructure that must first be implemented. Do not claim tests ran.
-
-### 11. Acceptance criteria
-Assign stable acceptance IDs. For each criterion, identify the requirement,
-observable behavior, conditions, verification method, and pass condition.
-Map every in-scope requirement to criteria or an explicitly unresolved issue.
-List previously approved exclusions separately; propose new exclusions for
-confirmation rather than dropping requirements.
-
-### 12. Implementation sequence
-Order implementation by dependencies. Identify prerequisite contracts, setup,
-shared-file integration, and work that can proceed independently.
-Describe useful review checkpoints without deciding final package boundaries.
-
-## Handoff
-
-List what Stage 4 must use: requirement and acceptance IDs, module/file ownership,
-contracts, relevant reusable-context rules, dependency order, and test prerequisites.
-List unresolved decisions and the specific work they block. State whether the
-design is ready to package.
+{{contract.schema}}

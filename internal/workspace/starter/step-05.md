@@ -1,114 +1,83 @@
 ---
 id: step-05
 stage: step-05
-title: Step 5 - One coding prompt for one package
-description: Builds the single coding prompt for the selected package using the reusable system context.
-assembles: [package_content, system_context, package_input]
+title: Step 5 - Generate one package coding prompt
+description: Writes a standalone coding prompt without implementing the package.
+assembles: [user.project_name, user.target, handoff, user.package_notes, user.notes, contract.schema]
 ---
 
-Implement exactly one selected work package:
-{{package_id}} - {{package_title}}.
+You are writing a coding prompt for a future coding session.
+Your deliverable is the prompt itself. Do not implement the package, edit files,
+run commands, write production implementations, or claim that checks passed.
 
-Your authority is limited to this package's approved scope and file ownership.
-Do not redesign the system, implement other packages, or expand the feature set.
+## Project
 
-## Required preparation
+{{user.project_name}}
 
-1. Read the full Reusable System Context, the complete selected package, and the
-   session notes before changing code.
-2. Read applicable repository instructions, including any AGENTS.md files, and
-   inspect the relevant code, manifests, scripts, and tests. Follow the repository's
-   existing instructions and conventions.
-3. Confirm the package's prerequisites against the actual repository. Saved planning
-   documents or completion labels are not evidence that code exists or tests passed.
-4. If the reusable context or selected package is missing, empty, or materially
-   incomplete, report the missing information before implementation.
-5. Identify conflicts among the context, package, notes, repository instructions,
-   and actual code. Record explicit user corrections. Do not silently resolve an
-   important conflict by choosing a source or inventing a decision.
-6. Ask only questions that materially affect scope, architecture, safety, cost,
-   or acceptance. Continue unaffected work with labeled assumptions where safe.
-   Do not guess through a blocking conflict.
+## Selected target
 
-## Project context supplied from Step 2.5
+{{user.target}}
 
-{{system_context}}
+## Selected operational context and work package
 
-## Work package {{package_id}} - {{package_title}}
+{{handoff}}
 
-{{package_content}}
+## User notes from this package's Stage 4 slot
 
-## My notes for this session (verbatim)
+{{user.package_notes}}
 
-{{package_input}}
+## User notes for this Stage 5 session
 
-## Missing prerequisites
+{{user.notes}}
 
-{{missing_sources}}
+## Your task
 
-## Implementation rules
+Write one standalone coding prompt containing all context the future coding
+session needs. Include only the operational context selected for this package,
+not the entire project context. Resolve ordinary wording into clear instructions.
+Do not silently override package contracts or system invariants.
 
-- Implement only {{package_id}}. Treat any cross-package summary or document-wide
-  handoff attached to the package as context, not additional scope.
-- Preserve settled decisions, interfaces, constraints, and invariants.
-  If the package requires changing them, report the necessary change and its
-  consequences before making the affected edit.
-- Stay within the package's owned files. Report required changes to another owner's
-  files rather than making unplanned edits.
-- Use the established stack and dependency policy. Do not add or change dependencies
-  outside the package's authorized scope.
-- Follow existing code style, naming, error handling, configuration, and logging.
-  Keep changes focused; avoid unrelated formatting, moves, or refactoring.
-- Distinguish supplied claims, repository observations, externally verified facts,
-  inferences, assumptions, and decisions made during implementation.
-  Do not invent files, APIs, sources, applied changes, or verification results.
-- Add or update meaningful tests for changed behavior and material failure paths,
-  using the repository's supported tooling and the package's acceptance criteria.
-  Do not impose a test for every branch or add an unrelated testing framework.
-- Run checks that exist, apply to the change, and can run in the available environment.
-  Verify proposed commands before using them. For unavailable checks, state the
-  prerequisite and verification gap; do not fabricate a substitute success.
-- Do not leave placeholder implementations for required package behavior.
-  Report incomplete work explicitly.
+If essential context is missing, or notes contradict an invariant or package
+boundary, explain the blocker, ask the necessary question, and return a blocked
+artifact without a coding prompt.
 
-## How to respond
+## Required content inside the generated coding prompt
 
-Use these phase headings exactly. Keep explanations concise and do not repeat
-the full context or package.
+1. Identify the package and its single intended outcome.
+2. Include the selected effective operational context, pinned stack, commands,
+   layout, conventions, contracts, invariants, testing standards, and budgets.
+3. Include scope in, scope out, prerequisite expectations, owned files,
+   and interfaces consumed and produced.
+4. Include the applicable implementation details and both sets of user notes.
+5. Instruct the future coding session to confirm understanding and stop on
+   missing prerequisites or blocking contradictions.
+6. Give ordered implementation instructions and identify the risky step.
+7. Instruct the future session to implement only this package, follow the
+   project style, avoid unrelated changes, and avoid unapproved dependencies.
+8. Specify the planned tests, including failure paths, verification commands,
+   expected results, and acceptance criteria.
+9. Require the future session to distinguish actual execution from suggested
+   commands and to report deviations, unfinished work, and adjacent findings.
 
-### Phase 1 - Confirm understanding
-Summarize the outcome, owned files, consumed and produced interfaces, prerequisites,
-and acceptance criteria. Identify material conflicts and assumptions.
-If implementation is blocked, explain the blocker and the specific answer needed.
+Do not execute any of those future-session instructions yourself.
+Do not claim that the package is complete.
 
-### Phase 2 - Plan
-Give the ordered changes and affected files. Identify the main risk and the checks
-that will provide evidence for acceptance.
+## Markdown answer
 
-### Phase 3 - Implement
-Make the authorized repository changes. Explain non-obvious choices briefly.
-If you cannot edit the repository, clearly distinguish proposed changes from
-applied changes; do not claim implementation is complete.
+For a ready artifact, provide:
+- Target and scope.
+- Assumptions or unresolved non-blocking questions.
+- A section titled "Coding prompt" containing the complete standalone prompt.
 
-### Phase 4 - Test
-Add or update the relevant tests. State what behavior they cover and any test
-setup required by the package. Do not add unrelated infrastructure.
+For a blocked artifact, provide the blockers and questions instead.
 
-### Phase 5 - Verify
-Run the applicable supported checks and inspect their results.
-Report each command or manual check, its actual outcome, and relevant evidence.
-Distinguish passed, failed, and not run, with reasons. Do not present expected
-output as observed output or claim success without execution evidence.
-Avoid repeating checks already run unless subsequent changes require it.
+The coding_prompt JSON string must contain exactly the reusable prompt text,
+without the surrounding BuildFlow explanation or JSON footer.
 
-### Phase 6 - Report
-- Files created or modified and their purpose.
-- Interfaces delivered or changed.
-- Acceptance criteria satisfied, with evidence, and criteria still unverified.
-- Tests and checks run, failures, and checks not run.
-- Deviations, assumptions requiring confirmation, and remaining issues.
-- Relevant out-of-scope findings, reported without implementing them.
+## Output contract
 
-End with **Handoff**: the verified interfaces and artifacts subsequent work may
-use, any required upstream document corrections, and unresolved issues or
-verification gaps. Do not start another package.
+Write the complete Markdown answer, then exactly one marked BuildFlow JSON footer
+using the marker layout and contract rules supplied with this schema.
+Use the selected package target. Do not add a summary field.
+
+{{contract.schema}}

@@ -1854,7 +1854,7 @@
       (stages.tokens || []).forEach((t) => {
         const chip = el('span', 'token', '{{' + t + '}}');
         chip.dataset.name = t;
-        chip.title = 'Click to append this placeholder to the template';
+        chip.title = ((stages.tokenHelp || {})[t] || '') + ' Click to append this placeholder to the template';
         tl.appendChild(chip);
       });
     } catch (err) {
