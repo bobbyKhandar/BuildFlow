@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": 2
+    },
+    "stage": {
+      "const": "step-04"
+    },
+    "scope": {
+      "enum": [
+        "stage",
+        "package"
+      ]
+    },
+    "package_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^P(?:0[1-9]|[1-9][0-9]{1,2})$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "state": {
+      "enum": [
+        "ready",
+        "blocked"
+      ]
+    },
+    "blocks": {
+      "$ref": "common.json#/$defs/WorkPackageBlocks"
+    }
+  },
+  "required": [
+    "schema_version",
+    "stage",
+    "scope",
+    "package_id",
+    "state",
+    "blocks"
+  ],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "scope": {
+            "const": "stage"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "package_id": {
+            "type": "null"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "package_id": {
+            "type": "string",
+            "pattern": "^P(?:0[1-9]|[1-9][0-9]{1,2})$"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "ready"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "blocks": {
+            "properties": {
+              "packages": {
+                "minItems": 1
+              },
+              "build_batches": {
+                "minItems": 1
+              },
+              "open_questions": {
+                "items": {
+                  "properties": {
+                    "blocking": {
+                      "const": false
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "blocks": {
+            "properties": {
+              "open_questions": {
+                "contains": {
+                  "type": "object",
+                  "properties": {
+                    "blocking": {
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "blocking"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$comment": "Structural output contract. Unique IDs, evidence, ownership, applicability links, cross-stage references, graph order, and acceptance/requirement coverage also require semantic Go validation."
+}

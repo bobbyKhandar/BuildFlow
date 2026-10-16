@@ -8,7 +8,7 @@ import (
 	"io/fs"
 )
 
-//go:embed index.html app.css app.js
+//go:embed index.html app.css structured.js app.js
 var files embed.FS
 
 // Assets returns the embedded web file system rooted at the interface files.

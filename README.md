@@ -48,8 +48,8 @@ BuildFlow assembles the relevant saved material into the next prompt. You can
 review and edit it before sending it to your AI tool.
 
 Later, when that project has work packages, Step 5 combines the selected
-package and its notes with the project's reusable system context from Step
-2.5. A fresh coding session receives the saved stack, conventions and
+package and its notes with the effective implementation context from Step 3.
+A fresh coding session receives the saved stack, conventions and
 constraints for that project. Your inventory app keeps its own context and
 package records, ready for when you switch back to it.
 
@@ -89,14 +89,13 @@ projects.
 3. Create a project and enter your idea, goals and constraints in Step 1.
 4. Save your input, assemble the prompt, review it and copy it into your AI
    tool. Paste the answer into **Output** and save.
-5. Repeat for Steps 2, 2.5 and 3. In Step 2.5, keep the
-   `## Reusable System Context` heading in the answer so BuildFlow can extract
-   it for later coding prompts.
-6. In Step 4, save each work package in its own slot, or detect packages from
-   an answer using `## P01 - Title` headings and review the import preview.
-7. Select a package in Step 5, assemble its coding prompt and save a snapshot
-   of the exact text you send. Paste the AI's response into that package's
-   output and save it for reference.
+5. Repeat for Steps 2, 2.5 and 3. Keep each complete answer, including its
+   structured footer; Step 3 carries the effective implementation context.
+6. Generate and save the combined Step 4 answer first. Detect packages, review
+   the preview and import selected packages. Then refine individual slots.
+7. Select a package in Step 5, assemble the request and save a snapshot of the
+   exact text you send. Save the returned coding prompt as that package's
+   output. Copy that coding prompt into your coding agent to implement it.
 8. Create your other projects in the same workspace. Use the project selector
    to switch between them and revisit each one's saved phases and packages.
 
@@ -323,8 +322,8 @@ it has been filled in.
 | **2** Decision and high-level design | One decision and a high-level design | Step 1 |
 | **2.5** Stack, cost and system context | Chosen technologies, packages, estimated cost, and the **reusable system context** | Step 2 |
 | **3** Low-level design | Detailed design: modules, interfaces, data, error handling | Step 2 **and** Step 2.5 |
-| **4** Work packages | Several independently buildable work packages | Step 3 |
-| **5** Package coding prompt | One coding prompt for **one** package, plus the Step 2.5 system context | the package, and Step 2.5 |
+| **4** Work packages | Combined package mapping, then individual packages | Step 3, including all package contracts |
+| **5** Package coding prompt | One coding prompt for **one** package; no implementation | selected saved package and Step 3 effective context |
 
 For each stage the page has separate areas:
 
@@ -353,45 +352,85 @@ Optional inputs (the step's own input notes, a package's input notes) are
 marked as optional and never block you. Under the preview they are listed
 separately as "Worth knowing" so a real gap is never buried among advice.
 
-Each entry in the `warnings` array of the assembly response carries
-`required` (does this gap block the step?), `severity` (`missing`, `empty` or
-`note`) and a `hint` telling you what to do. Treat `required` as authoritative;
-`severity: "note"` entries are advice, such as an unknown `{{placeholder}}` in a
-template, and never block even though they are worth acting on.
+Each entry in the `warnings` array of the assembly response carries a token,
+source path, reason, severity and `required` flag. Projection diagnostics also
+identify invalid links and missing data. Treat `required` as authoritative and
+review blockers before continuing; optional empty notes are advisory.
 
-### Output flows into the next step's input
+### Structured answers and handoffs
 
-When you save an output, BuildFlow automatically copies it into the next step's
-input, so each step starts with the previous result in front of it:
+Starter prompts request a complete readable answer followed by a terminal
+`## BuildFlow Structured View` section. Its JSON fence sits between
+`<!-- buildflow:view:start -->` and `<!-- buildflow:view:end -->`. Keep both the
+narrative and footer when saving. The saved Markdown remains the source of truth;
+Blocks and prompt projections are derived views and never rewrite it.
 
-```
-My own notes for this step.
+The current answer schema is **version 2**, independently of the `/v3` projection
+profiles. Each envelope declares `schema_version`, `stage`, `scope` (`stage` or
+`package`), `package_id` (null for stage scope), `state` (`ready` or `blocked`),
+and typed `blocks`. The `{{contract.schema}}` placeholder inserts the exact
+contract for the selected stage and scope. Types live in
+[internal/structured/types.go](internal/structured/types.go); complete examples
+for all six stages live in [testdata](internal/structured/testdata).
 
+| Answer | Main blocks |
+| --- | --- |
+| Step 1 | Problem, goals, scenarios, requirements, constraints, options, evidence |
+| Step 2 | Decision, design, interfaces, scope, delivery plan, settled decisions |
+| Step 2.5 | Technology, libraries, tools, services, commands, costs, system context, contracts |
+| Step 3 | Modules, contracts, effective implementation context, design changes, tests, acceptance, coverage |
+| Step 4 | Packages, build batches, integration points, deliberately omitted work |
+| Step 5 | Target package, coding prompt, acceptance checks |
 
-<!-- buildflow:auto:step-01 -->
-# Research brief
+Stable IDs connect requirements, components, modules, contracts, tests,
+acceptance criteria and packages. Preserve IDs across stages; resolve references
+against saved upstream answers. Evidence uses source and assumption IDs;
+applicability links select the records relevant to a module or package. Invalid,
+unresolved or conflicting links produce diagnostics. Required undetermined data
+blocks projection instead of inventing a value. Every contract used or produced
+by Step 4 must already exist in Step 3. Step 3's effective implementation context
+carries accepted changes to Step 2.5 forward.
 
-The AI researched the topic.
-<!-- /buildflow:auto:step-01 -->
-```
+`{{handoff}}` selects a fixed field projection, compiled into Go in
+[prompt_projection_specs.go](internal/workspace/prompt_projection_specs.go).
+Templates and model output cannot change those field lists. This table describes
+the selection; the Go registry is the exact list of leaf fields and predicates.
 
-- Your own notes stay at the top. The copied block is appended below, separated
-  by three blank lines.
-- The block is wrapped in a marker comment, so the copy is always visible,
-  never mysterious. Delete it and it stays gone until you save that output again.
-- Saving the output again **replaces** the block instead of appending a second
-  one, so re-running a step never duplicates context.
-- The assembled prompt uses your notes for `{{input}}` and the previous output
-  through the dedicated `{{output_step_XX}}` tokens, so nothing is duplicated
-  inside the prompt.
-- The built-in starter prompts end each stage with a `## Handoff` section that
-  states what the next stage must use, instead of repeating the previous
-  output again at the bottom. `{{previous_output}}` is still available if you
-  want that behaviour in your own template (see the placeholder table below).
+| Consumer | Saved sources and selection |
+| --- | --- |
+| Step 2 | Step 1 research fields and referenced evidence |
+| Step 2.5 | Step 2 decision, requirements, design, scope and applicable common records |
+| Step 3 | Step 2 design plus Step 2.5 technology, operations, contracts and evidence |
+| Step 4 combined | Step 3 modules, contracts, effective context, tests, acceptance and coverage |
+| Step 4 individual | Same profile narrowed by the saved combined package mapping; optional saved slot refinement |
+| Step 5 | Selected saved package plus linked Step 3 modules, requirements, contract closure, effective context and selected commands |
 
-The chain runs Step 1 → 2 → 2.5 → 3 → 4. Step 4 is different: its output is the
-work packages themselves, and each one is copied into its own Step 5 input (see
-below).
+Step 5 never substitutes a package from the combined answer for a missing saved
+package file. Source hashes and selected record hashes support freshness checks;
+changes to selected requirements or declarations require package review.
+
+Handoffs render deterministic compact JSON with stable key order. Whitespace
+outside strings is reduced; declarations, code, commands, paths, rules and other
+string values remain intact. Sources show paths, hashes, selections and fallback
+boundaries. Size estimates use roughly **4 characters per token** and warn at
+**32,000 estimated tokens**, or **48,000 for Step 4**. These are warnings only;
+BuildFlow never automatically trims content, including manually edited prompts.
+
+Saving answers no longer copies them into downstream inputs. Inputs hold your
+notes, and assembly reads the saved sources. Existing `buildflow:auto` tails
+remain on disk but are excluded from user notes during assembly.
+
+### Legacy Markdown and fallback limits
+
+Answers without a valid current footer remain readable and editable. A supported
+version 1 research footer can be adapted in memory; unsupported versions and
+malformed footers expose diagnostics. Fallback selects registered Markdown
+headings, ignoring headings inside fenced examples. When a required section is
+not found, it includes the document once, with a warning. This can make prompts
+much larger and cannot provide the same ID validation or package isolation as a
+valid structured answer. Missing mappings or incompatible baselines may still
+block assembly; fallback does not fabricate contracts or links. Save a corrected
+complete answer to restore structured projections.
 
 ### Step 4: work packages as you go
 
@@ -401,9 +440,8 @@ in — the extra empty slot is how you add the next package:
 - **Notes (input)** — your notes for that package, saved to
   `inputs/step-04/P01.md`.
 - **Work package (output)** — the package content. Saving it creates
-  `packages/P01.md` (with Obsidian front matter) **and** copies it into that
-  package's Step 5 input, so Step 5 starts with the package already in front of
-  you.
+  `packages/P01.md` (with Obsidian front matter). Step 5 reads this saved
+  package directly; its input remains your session notes.
 
 A slot counts as filled once it holds anything — notes or a package — so saving
 a package also opens the next empty slot. The single `outputs/step-04.md` file,
@@ -412,7 +450,13 @@ for existing projects.
 
 ### Step 4: splitting into packages
 
-Put your packages in the Step 4 output as headings:
+Generate the combined answer before assembling an individual package prompt.
+Detection matches narrative package headings to structured records, preserving
+the combined narrative, overview and footer. Each imported package gets only its applicable records and
+provenance. Editing a slot does not change the combined source. Detection is a
+preview; import checks the preview hashes before overwriting existing packages.
+
+Legacy Markdown can still use headings:
 
 ```markdown
 ## P01 - Local REST API
@@ -458,11 +502,11 @@ Status is derived from what is on disk, not from a checkbox you can forget:
 | `empty` | no package document or prompt snapshot exists |
 | `ready` | the package document exists, but no prompt snapshot is saved |
 | `prompt-ready` | a prompt snapshot exists, but no non-empty output is saved |
-| `done` | the package document, prompt snapshot and non-empty output are saved |
+| `output-saved` | non-empty output exists, without a valid ready coding-prompt artifact |
+| `prompt-generated` | output contains a valid ready Step 5 coding-prompt artifact |
 
-These statuses describe the saved records. `done` does not mean the generated
-code has been tested or that the package meets its acceptance criteria; review
-and verify the implementation in your development tools.
+These statuses describe saved artifacts. Step 5 produces a coding prompt only;
+implementation and verification happen in your coding tools.
 
 ---
 
@@ -566,7 +610,12 @@ assembles the prompt.
 | `{{project_name}}` `{{project_id}}` `{{project_description}}` | project metadata |
 | `{{stage}}` `{{stage_num}}` `{{stage_title}}` | which step you are on |
 | `{{today}}` `{{generated_at}}` | date and timestamp |
-| `{{input}}` | this step's input notes |
+| `{{user.project_name}}` `{{user.use_case}}` | project name and Step 1 use case |
+| `{{user.notes}}` `{{user.package_notes}}` | stage notes and selected package notes |
+| `{{user.target}}` | selected scope and package mapping |
+| `{{handoff}}` | fixed consumer projection described above |
+| `{{contract.schema}}` | exact output contract for this target |
+| `{{input}}` | compatibility alias for this step's input notes |
 | `{{output_step_01}}` … `{{output_step_04}}` | a saved output of any step |
 | `{{previous_output}}` | the previous step's output, for the bottom of the prompt |
 | `{{system_context}}` | the *Reusable System Context* section of Step 2.5 |
@@ -578,8 +627,25 @@ assembles the prompt.
 A placeholder BuildFlow does not recognise is left exactly as written and
 reported as a warning, rather than being silently emptied.
 
-All six stages ship with complete, written-out starter prompts, so the app is
-useful the first time you open it.
+All six stages ship with starter prompts. Existing global templates and local
+overrides are preserved when the executable changes. To adopt updated starters,
+edit and save the active template through the normal template editor (or its PUT
+endpoint), retaining any custom instructions. Remove an obsolete local override
+if you want the updated global template to become active. There is no automatic
+template migration.
+
+Whole-output compatibility placeholders (`output_step_*`, `previous_output`,
+`package_content`, `system_context`) bypass the fixed projection and warn about
+prompt size. Prefer `{{handoff}}` in updated templates.
+
+### Optional Generate summary
+
+For a valid structured answer, Generate summary explains the saved blocks using
+the exact saved prompt snapshot, or a labelled current assembly if no snapshot
+exists. It uses only the configured **Free** mode through the existing settings
+and chat endpoint. Missing configuration or Paid mode opens Settings; there is
+no paid fallback. The summary is session-only, separate from the saved answer,
+and is invalidated when its source changes. It is never a downstream handoff.
 
 ## Prompt snapshots
 
@@ -897,18 +963,33 @@ powershell -ExecutionPolicy Bypass -File scripts\verify.ps1
 
 This starts a private instance in a temporary folder - your real workspace and
 `%LOCALAPPDATA%\BuildFlow` are never touched - and drives it over HTTP through
-201 checks, covering loopback-only binding, token and origin rejection, project
+checks covering loopback-only binding, token and origin rejection, project
 create/rename/switch, saves and byte-for-byte reloads, external-edit conflicts,
 global versus local templates, assembly and its prerequisites, snapshots,
 package detection and import, N+1 creation, per-package Step 5 records, path
 traversal rejection, persistence across a restart, single-instance enforcement,
 the sign-in setting and a clean quit.
 
-The suite is the safety net, not a substitute for using the app. The browser
-workbench was also driven end to end by hand: creating a project, saving every
-step, detecting and importing packages, building a Step 5 prompt, taking a
-snapshot, adding the next package, and provoking a real external-edit conflict
-by editing a file underneath a running instance.
+The suite exercises legacy Markdown and the six structured stage fixtures,
+combined import, individual package assembly, exact snapshots, source
+preservation, package isolation and external-edit conflicts in an isolated
+workspace. It updates active templates using the ordinary save endpoint.
+
+Run the portable checks from the repository root:
+
+```sh
+go build ./...
+go vet ./...
+go test ./...
+node --test web/ui_test.js
+CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o /tmp/buildflow-plan-check.exe .
+```
+
+The Node checks exercise UI behavior with a DOM test double. Also check the real
+browser against the private verification workspace: visit every stage, inspect
+Blocks/Full output/Edit, import the combined answer, select individual packages,
+copy the generated coding prompt, reload snapshots and provoke an external edit
+before saving. Do not run the suite against your everyday workspace.
 
 ## Known limitations
 
@@ -931,10 +1012,12 @@ Honest list of what is not there:
   is the point of storing plain Markdown.
 - **No project export or import as an archive.** Copy the folder. If you want
   one, an "export project as a folder" button is the obvious addition.
-- **Package detection is heading-based**, not semantic. It finds
-  `## P01 - Title` and similar shapes. It cannot tell you that P03 is too big
-  or that P02 and P04 overlap. Always read the preview before importing.
-- **The Step 2.5 system context depends on a heading.** BuildFlow looks for a
+- **Package detection needs review.** Narrative package headings identify
+  candidates, with matching structured records when available. They do not
+  prove the work is well scoped.
+  Always read the preview before importing.
+- **Legacy system context extraction depends on a heading.** The compatibility
+  `{{system_context}}` token looks for a
   `## Reusable System Context` (or `## System Context`) section and takes
   everything under it up to the next heading of the same level. With no such
   heading it falls back to the whole document and says so.

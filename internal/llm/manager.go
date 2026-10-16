@@ -197,8 +197,20 @@ func (m *Manager) Models(ctx context.Context, provider string) ([]string, error)
 }
 
 func (m *Manager) Complete(ctx context.Context, messages []Message) (Completion, error) {
+	return m.complete(ctx, messages, false)
+}
+
+// CompleteFree refuses paid-mode settings using the same snapshot as the request.
+func (m *Manager) CompleteFree(ctx context.Context, messages []Message) (Completion, error) {
+	return m.complete(ctx, messages, true)
+}
+
+func (m *Manager) complete(ctx context.Context, messages []Message, requireFree bool) (Completion, error) {
 	s := m.store.Settings()
 	mode, provider := normalizeSelection(s.LLMMode, s.LLMProvider)
+	if requireFree && mode != "free" {
+		return Completion{}, errors.New("summary generation requires free-mode settings; open Settings")
+	}
 	if !providerAllowed(mode, provider) {
 		return Completion{}, errors.New("selected provider is not available in this mode")
 	}

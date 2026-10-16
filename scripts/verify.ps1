@@ -139,7 +139,7 @@ if (-not $WorkDir) {
 }
 New-Item -ItemType Directory -Force -Path $WorkDir | Out-Null
 $Home1 = Join-Path $WorkDir "home"
-$Workspace = Join-Path $WorkDir "workspace"
+if (-not $Workspace) { $Workspace = Join-Path $WorkDir "workspace" }
 New-Item -ItemType Directory -Force -Path $Home1, $Workspace | Out-Null
 
 if (-not $NoStart) {
@@ -148,8 +148,18 @@ if (-not $NoStart) {
     Write-Host "  home      : $Home1"
     Write-Host "  workspace : $Workspace"
     $env:BUILDFLOW_HOME = $Home1
+    # Reserve a free loopback port for this isolated run, then pass it explicitly.
+    if (-not $BaseUrl) {
+        $probe = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+        $probe.Start()
+        $verifyPort = $probe.LocalEndpoint.Port
+        $probe.Stop()
+        $BaseUrl = "http://127.0.0.1:$verifyPort"
+    } else {
+        $verifyPort = ([uri]$BaseUrl).Port
+    }
     $script:StartedProcess = Start-Process -FilePath $Exe `
-        -ArgumentList @("--workspace", $Workspace, "--no-browser") `
+        -ArgumentList @("--workspace", $Workspace, "--no-browser", "--port", "$verifyPort") `
         -PassThru -WindowStyle Hidden `
         -RedirectStandardOutput (Join-Path $WorkDir "stdout.txt") `
         -RedirectStandardError (Join-Path $WorkDir "stderr.txt")
@@ -203,7 +213,7 @@ Check "cross-origin state change is refused before it happens" ($stateChange.Sta
 Check "no CORS headers are sent" ($health.Headers["Access-Control-Allow-Origin"] -eq $null)
 
 if ($script:StartedProcess) {
-    $listeners = Get-NetTCPConnection -State Listen -LocalPort 8765 -ErrorAction SilentlyContinue
+    $listeners = Get-NetTCPConnection -State Listen -LocalPort ([uri]$BaseUrl).Port -ErrorAction SilentlyContinue
     $addrs = @($listeners | Select-Object -ExpandProperty LocalAddress -Unique)
     Check "listener is bound to 127.0.0.1 only" (($addrs.Count -eq 1) -and ($addrs[0] -eq "127.0.0.1")) ("addresses: " + ($addrs -join ", "))
 }
@@ -364,7 +374,7 @@ Section "6. Prompt assembly and prerequisites"
 # Put a real local override on step 3 so assembly has something local to use.
 $global03 = (Invoke-Api "/api/projects/$projA/template?stage=step-03&scope=global").Body.content
 $saveLocal2 = Invoke-Api "/api/projects/$projA/template" -Method "PUT" -Body @{
-    stage = "step-03"; scope = "local"; content = ($global03 -replace '\{\{missing_sources\}\}', "## Local house style`n`nBe blunt.`n`n{{missing_sources}}"); baseHash = ""
+    stage = "step-03"; scope = "local"; content = ($global03 + "`n## Local house style`n`nBe blunt.`n"); baseHash = ""
 }
 Check "step-03 local override saved" ($saveLocal2.Status -eq 200) ("status " + $saveLocal2.Status)
 Check "step-03 override is marked as an override" ($saveLocal2.Body.activeScope -eq "local" -and $saveLocal2.Body.hasOverride)
@@ -372,9 +382,9 @@ Check "step-03 override is marked as an override" ($saveLocal2.Body.activeScope 
 # Step 3 needs steps 2 and 2.5; both are empty right now.
 $asm3 = Invoke-Api "/api/projects/$projA/assemble?stage=step-03"
 Check "assemble step 3" ($asm3.Status -eq 200) ("status " + $asm3.Status)
-$missingTokens = @($asm3.Body.warnings | Where-Object { $_.severity -eq "missing" -and $_.required } | ForEach-Object { $_.token })
-Check "step 3 reports both missing prerequisites" (($missingTokens -contains "output_step_02") -and ($missingTokens -contains "output_step_02_5")) ($missingTokens -join ", ")
-Check "assembled prompt marks the missing inputs" ($asm3.Body.content -like "*not saved yet*")
+$missingPaths = @($asm3.Body.warnings | Where-Object { $_.required } | ForEach-Object { $_.path })
+Check "step 3 reports both missing prerequisites" (($missingPaths -like "*step-02.md").Count -gt 0 -and ($missingPaths -like "*step-02-5.md").Count -gt 0) ($missingPaths -join ", ")
+Check "assembled prompt marks the missing inputs" ($asm3.Body.projection.state -eq "blocked")
 Check "assembly used the local template" ($asm3.Body.templateScope -eq "local" -and $asm3.Body.templatePath -like "*local-overrides*") $asm3.Body.templatePath
 
 # Now fill in the prerequisites.
@@ -392,16 +402,16 @@ Invoke-Api "/api/projects/$projA/doc" -Method "PUT" -Body @{
 $asm3b = Invoke-Api "/api/projects/$projA/assemble?stage=step-03"
 $missing3b = @($asm3b.Body.warnings | Where-Object { $_.severity -eq "missing" -and $_.required })
 Check "no missing prerequisites once saved" ($missing3b.Count -eq 0) ((@($missing3b | ForEach-Object { $_.token })) -join ", ")
-Check "optional inputs are only advisory" ((@($asm3b.Body.warnings | Where-Object { $_.token -eq "input" })).Count -eq 1)
+Check "optional inputs are only advisory" ((@($asm3b.Body.warnings | Where-Object { $_.token -eq "input" -and -not $_.required })).Count -eq 1)
 Check "step 2 output is embedded in the step 3 prompt" ($asm3b.Body.content -like "*local-first architecture*")
 Check "step 2.5 output is embedded in the step 3 prompt" ($asm3b.Body.content -like "*Go standard library only*")
-Check "step 3's own input slot is present" ($asm3b.Body.content -like "*My notes for this step*")
+Check "step 3's own input slot is present" ($asm3b.Body.content -like "*## User design notes*")
 Check "template placeholder {{output_step_02}} was substituted" ($asm3b.Body.content -notlike "*{{output_step_02}}*")
 Check "prompt length is plausible" ($asm3b.Body.charCount -gt 1500) ("chars " + $asm3b.Body.charCount)
 
 $asm4 = Invoke-Api "/api/projects/$projA/assemble?stage=step-04"
 Check "step 4 pulls in the step 3 output" ($asm4.Body.content -like "*Three modules*")
-Check "step 4 does not require step 1" ($asm4.Body.content -like "*My notes on packaging*")
+Check "step 4 does not require step 1" ($asm4.Body.content -like "*## User packaging notes*")
 Check "step 4's prerequisites are all satisfied" (@($asm4.Body.warnings | Where-Object { $_.severity -eq "missing" -and $_.required }).Count -eq 0)
 
 $asm2 = Invoke-Api "/api/projects/$projA/assemble?stage=step-02"
@@ -410,7 +420,7 @@ Check "step 2 pulls in the step 1 output" ($asm2.Body.content -like "*Research b
 $asm1 = Invoke-Api "/api/projects/$projA/assemble?stage=step-01"
 Check "step 1 assembles from its own input" ($asm1.Body.content -like "*local store inventory app*")
 Check "step 1 reports no missing prerequisites" (@($asm1.Body.warnings | Where-Object { $_.severity -eq "missing" -and $_.required }).Count -eq 0)
-Check "step 1 still lists its prerequisite slots" ($asm1.Body.content -like "*My use case*")
+Check "step 1 still lists its prerequisite slots" ($asm1.Body.content -like "*local store inventory app*")
 
 # ---------------------------------------------------------------- 7. snapshots
 Section "7. Prompt snapshots"
@@ -423,13 +433,13 @@ Check "save a prompt snapshot" ($snap.Status -eq 200 -and $snap.Body.hasSnapshot
 $snapPath = Join-Path $Workspace "projects\$projA\prompts\snapshots\step-03.md"
 Check "snapshot file written" (Test-Path $snapPath)
 $snapText = Get-FileText $snapPath
-Check "snapshot holds the exact text that was sent" ($snapText -like "*## My addition*")
+Check "snapshot holds the exact text that was sent" (($snapText -replace '\A---\r?\n[\s\S]*?\r?\n---\r?\n\r?\n', "") -ceq $edited)
 Check "snapshot keeps the assembled body verbatim" ($snapText -like "*local-first architecture*")
 Check "snapshot records the local override that produced it" ($snapText -like "*Local house style*")
 Check "snapshot is detected as differing from a fresh assembly" ($snap.Body.snapshotDiffers -eq $true)
 
 $snapReload = Invoke-Api "/api/projects/$projA/doc?kind=snapshot&stage=step-03"
-Check "snapshot can be loaded again" ($snapReload.Body.content -like "*## My addition*")
+Check "snapshot can be loaded again verbatim" (($snapReload.Body.content -replace '\A---\r?\n[\s\S]*?\r?\n---\r?\n\r?\n', "") -ceq $edited)
 
 # ---------------------------------------------------------------- 8. packages
 Section "8. Package detection, import and N+1"
@@ -482,7 +492,7 @@ Check "package file keeps the original heading" ($pkg1 -like "*## P01 - Local RE
 
 # Hand-edit P02, then re-detect and re-import: the hand edit must survive.
 $p02Path = Join-Path $projADir "packages\P02.md"
-[System.IO.File]::WriteAllText($p02Path, "---\nid: P02\n---\n\n## P02 - My hand written version\n\nDo not lose this.\n")
+[System.IO.File]::WriteAllText($p02Path, "---`nid: P02`n---`n`n## P02 - My hand written version`n`nDo not lose this.`n")
 $det2 = Invoke-Api "/api/projects/$projA/detect-packages" -Method "POST" -Body @{}
 $p02det = $det2.Body.packages | Where-Object { $_.id -eq "P02" }
 Check "detection flags the existing package file" ($p02det.fileExists -eq $true) ("chars " + $p02det.existingChars)
@@ -545,7 +555,7 @@ Invoke-Api "/api/projects/$projA/doc" -Method "PUT" -Body @{
     kind = "package-input"; stage = "step-05"; package = "P01"; content = "Focus on the routing tests."; baseHash = ""
 } | Out-Null
 Invoke-Api "/api/projects/$projA/doc" -Method "PUT" -Body @{
-    kind = "package-output"; stage = "step-05"; package = "P01"; content = "# P01 done`n`nServer implemented."; baseHash = ""
+    kind = "package-output"; stage = "step-05"; package = "P01"; content = "# P01 coding prompt`n`nImplement the routing and run its tests."; baseHash = ""
 } | Out-Null
 $snap5 = Invoke-Api "/api/projects/$projA/snapshot" -Method "POST" -Body @{
     stage = "step-05"; package = "P01"; content = $asm5a.Body.content
@@ -559,7 +569,7 @@ Check "P01 snapshot still present and differing" ($asm5c.Body.hasSnapshot -and $
 $projAfter = Invoke-Api "/api/projects/$projA"
 $p01info = $projAfter.Body.packages | Where-Object { $_.id -eq "P01" }
 $p03info = $projAfter.Body.packages | Where-Object { $_.id -eq "P03" }
-Check "P01 status is done" ($p01info.status -eq "done") ("status " + $p01info.status)
+Check "legacy P01 output has artifact status output-saved" ($p01info.status -eq "output-saved") ("status " + $p01info.status)
 Check "P01 has its own output record" ($p01info.hasOutput -eq $true)
 Check "P03 has no output of its own" ($p03info.hasOutput -eq $false)
 Check "P03 status is ready" ($p03info.status -eq "ready") ("status " + $p03info.status)
@@ -567,58 +577,43 @@ Check "inputs/step-05 and outputs/step-05 are separate folders" ((Test-Path (Joi
 Check "step 5 input is not in the project root inputs folder" (-not (Test-Path (Join-Path $projADir "inputs\P01.md")))
 
 # Missing system context must be reported loudly.
-$projBOut = Join-Path $Workspace "projects\$projB\outputs\step-02-5.md"
-Write-Output "        (project $projB has no step 2.5 output, so step 5 must warn)"
+Write-Output "        (project $projB has no effective Step 3 context, so Step 5 must warn)"
 $asm5Missing = Invoke-Api "/api/projects/$projB/assemble?stage=step-05&package=P01"
-Check "step 5 warns when the system context is missing" ((@($asm5Missing.Body.warnings | Where-Object { $_.token -eq "system_context" }).Count -gt 0)) ((@($asm5Missing.Body.warnings | ForEach-Object { $_.token + ": " + $_.reason })) -join ", ")
-Check "missing system context is marked in the prompt text" ($asm5Missing.Body.content -like "*not saved yet*")
-Check "step 5 warns about the unknown package too" ((@($asm5Missing.Body.warnings | Where-Object { $_.token -eq "package_content" }).Count -gt 0))
+Check "step 5 warns when effective context is missing" ((@($asm5Missing.Body.warnings | Where-Object { $_.required -and $_.path -like "*step-03.md" }).Count -gt 0)) ((@($asm5Missing.Body.warnings | ForEach-Object { $_.token + ": " + $_.reason })) -join ", ")
+Check "missing system context is marked in the prompt text" ($asm5Missing.Body.projection.state -eq "blocked")
+Check "step 5 warns about the unknown package too" ((@($asm5Missing.Body.warnings | Where-Object { $_.required -and $_.path -like "*P01.md" }).Count -gt 0))
 
-# The system context must be exactly the Step 2.5 section, not the whole file.
+# Legacy recovery preserves context, with explicit fallback diagnostics.
 $sysOnly = Invoke-Api "/api/projects/$projA/assemble?stage=step-05&package=P02"
-Check "step 5 uses only the Reusable System Context section" ($sysOnly.Body.content -like "*Mission: a local workbench*" -and $sysOnly.Body.content -notlike "*# Stack*")
-Check "step 5 pulls the stack line out of the system context" ($sysOnly.Body.content -notlike "*Go standard library only*")
+Check "legacy step 5 retains the available system context" ($sysOnly.Body.content -like "*Mission: a local workbench*")
+Check "legacy recovery is labelled in provenance" (@($sysOnly.Body.sources | Where-Object { $_.mode -like "markdown_*" }).Count -gt 0)
 
-# ---------------------------------------------------------------- 10. output -> next input
-Section "10. Output auto-copies into the next step's input"
+# ---------------------------------------------------------------- 10. source preservation
+Section "10. Answer saves preserve notes and legacy copies"
 
-# These run on project B, which has no outputs yet, so the first save of each
-# stage is clean (no conflict with an earlier section's content).
-$ac1 = Invoke-Api "/api/projects/$projB/doc" -Method "PUT" -Body @{ kind = "output"; stage = "step-01"; content = "# Brief`n`nAuto-copy source."; baseHash = "" }
-$acIn2 = Invoke-Api "/api/projects/$projB/doc?kind=input&stage=step-02"
-Check "saving step 1 output copies it into the step 2 input" ($acIn2.Body.content -like "*Auto-copy source*")
-Check "the copy is wrapped in a marker" ($acIn2.Body.content -like "*<!-- buildflow:auto:step-01 -->*")
-
-# The user's own notes stay above the block. Add notes, save, then re-save the
-# output: the block is replaced in place, not duplicated, and the notes remain
-# on top separated by three blank lines.
-$acNotes = Invoke-Api "/api/projects/$projB/doc" -Method "PUT" -Body @{ kind = "input"; stage = "step-02"; content = "My own notes.`n`n`n`n<!-- buildflow:auto:step-01 -->`nold`n<!-- /buildflow:auto:step-01 -->"; baseHash = $acIn2.Body.hash }
-$ac1b = Invoke-Api "/api/projects/$projB/doc?kind=output&stage=step-01"
-$ac2 = Invoke-Api "/api/projects/$projB/doc" -Method "PUT" -Body @{ kind = "output"; stage = "step-01"; content = "# Brief`n`nUPDATED."; baseHash = $ac1b.Body.hash }
-$acIn2b = Invoke-Api "/api/projects/$projB/doc?kind=input&stage=step-02"
-$openCount = @([regex]::Matches($acIn2b.Body.content, [regex]::Escape("<!-- buildflow:auto:step-01 -->"))).Count
-Check "re-saving updates the copy instead of duplicating it" ($openCount -eq 1) ("open markers " + $openCount)
-Check "the updated copy replaced the old text" ($acIn2b.Body.content -like "*UPDATED.*" -and $acIn2b.Body.content -notlike "*Auto-copy source*")
-Check "the notes stay above the block" ($acIn2b.Body.content -like "*My own notes.*`n`n`n`n<!-- buildflow:auto:step-01 -->*")
-
-# The whole chain: 2 -> 2.5 -> 3 -> 4.
-Invoke-Api "/api/projects/$projB/doc" -Method "PUT" -Body @{ kind = "output"; stage = "step-02"; content = "# Decision`n`nChose X."; baseHash = "" } | Out-Null
-$acIn25 = Invoke-Api "/api/projects/$projB/doc?kind=input&stage=step-02-5"
-Check "step 2 output reaches the step 2.5 input" ($acIn25.Body.content -like "*Chose X.*")
-Invoke-Api "/api/projects/$projB/doc" -Method "PUT" -Body @{ kind = "output"; stage = "step-02-5"; content = "# Stack`n`nGo."; baseHash = "" } | Out-Null
-$acIn3 = Invoke-Api "/api/projects/$projB/doc?kind=input&stage=step-03"
-Check "step 2.5 output reaches the step 3 input" ($acIn3.Body.content -like "*Go.*")
-Invoke-Api "/api/projects/$projB/doc" -Method "PUT" -Body @{ kind = "output"; stage = "step-03"; content = "# Design`n`nModules."; baseHash = "" } | Out-Null
-$acIn4 = Invoke-Api "/api/projects/$projB/doc?kind=input&stage=step-04"
-Check "step 3 output reaches the step 4 input" ($acIn4.Body.content -like "*Modules.*")
-
-# The assembled prompt uses the user notes for {{input}} while the previous
-# output arrives via {{output_step_01}}, so it is not duplicated inside the notes.
+$notes = "My own notes.`n`n<!-- buildflow:auto:step-01 -->`nOLD_COPIED_ANSWER`n<!-- /buildflow:auto:step-01 -->"
+$noteSave = Invoke-Api "/api/projects/$projB/doc" -Method "PUT" -Body @{
+    kind = "input"; stage = "step-02"; content = $notes; baseHash = ""
+}
+Check "save legacy notes fixture" ($noteSave.Status -eq 200)
+foreach ($pair in @(
+    @{ stage = "step-01"; next = "step-02" },
+    @{ stage = "step-02"; next = "step-02-5" },
+    @{ stage = "step-02-5"; next = "step-03" },
+    @{ stage = "step-03"; next = "step-04" }
+)) {
+    $beforeNotes = (Invoke-Api "/api/projects/$projB/doc?kind=input&stage=$($pair.next)").Body
+    $answerSave = Invoke-Api "/api/projects/$projB/doc" -Method "PUT" -Body @{
+        kind = "output"; stage = $pair.stage; content = "# Legacy answer`n`nUPDATED_SOURCE_$($pair.stage)"; baseHash = ""
+    }
+    $afterNotes = (Invoke-Api "/api/projects/$projB/doc?kind=input&stage=$($pair.next)").Body
+    Check ("saving " + $pair.stage + " leaves downstream input unchanged") ($answerSave.Status -eq 200 -and $beforeNotes.hash -eq $afterNotes.hash -and $beforeNotes.exists -eq $afterNotes.exists)
+}
 $acAsm2 = Invoke-Api "/api/projects/$projB/assemble?stage=step-02"
-Check "the step 2 prompt uses the user notes for the input slot" ($acAsm2.Body.content -like "*My own notes.*")
-Check "the step 2 prompt gets the previous output from its own token" ($acAsm2.Body.content -like "*UPDATED.*")
-Check "the prompt has a previous-output section" ($acAsm2.Body.content -like "*## Previous step output*")
-Check "the previous-output section holds the previous output" ($acAsm2.Body.content -like "*## Previous step output*UPDATED.*")
+Check "assembly retains user notes" ($acAsm2.Body.content -like "*My own notes.*")
+Check "assembly excludes old copied answers" ($acAsm2.Body.content -notlike "*OLD_COPIED_ANSWER*")
+Check "legacy handoff includes the saved source once" ([regex]::Matches($acAsm2.Body.content, "UPDATED_SOURCE_step-01").Count -eq 1)
+Check "assembly leaves legacy notes intact on disk" ((Invoke-Api "/api/projects/$projB/doc?kind=input&stage=step-02").Body.content -ceq $notes)
 
 # ---------------------------------------------------------------- 11. step 4 slots
 Section "11. Step 4 per-package slots"
@@ -627,14 +622,13 @@ $slotsFresh = Invoke-Api "/api/projects/$projB/step4"
 $freshIds = @($slotsFresh.Body.slots | ForEach-Object { $_.id })
 Check "a fresh project offers one empty slot" ($freshIds.Count -ge 1 -and $freshIds[0] -eq "P01") ($freshIds -join ", ")
 
-# Saving a slot output creates the package and copies it to Step 5.
+# Saving a slot output creates the package without modifying Step 5 notes.
 $slotOut = Invoke-Api "/api/projects/$projB/doc" -Method "PUT" -Body @{ kind = "package"; stage = ""; package = "P01"; content = "## P01 - API`n`nBuild it."; baseHash = "" }
 Check "saving a slot output creates the package" ($slotOut.Status -eq 200 -and $slotOut.Body.exists)
 $slotPkg = Invoke-Api "/api/projects/$projB/doc?kind=package&package=P01"
 Check "the package carries front matter" ($slotPkg.Body.content -like "*id: P01*")
 $slotIn5 = Invoke-Api "/api/projects/$projB/doc?kind=package-input&stage=step-05&package=P01"
-Check "saving a package copies it into the step 5 input" ($slotIn5.Body.content -like "*Build it.*")
-Check "the step 5 copy is marked as coming from step 4" ($slotIn5.Body.content -like "*<!-- buildflow:auto:step-04 -->*")
+Check "saving a package leaves step 5 input absent" (-not $slotIn5.Body.exists)
 
 # The n+1 rule: a filled slot opens the next empty one.
 $slotsAfter = Invoke-Api "/api/projects/$projB/step4"
@@ -647,8 +641,53 @@ Check "slot input notes are saved" ($slotIn.Status -eq 200)
 $slotInCheck = Invoke-Api "/api/projects/$projB/doc?kind=step4-input&stage=step-04&package=P01"
 Check "slot input notes are on disk" ($slotInCheck.Body.content -like "*Notes for P01.*")
 
+# ------------------------------------------------ structured workflow fixtures
+Section "12. All six structured stages and source fidelity"
+
+$structuredProject = (Invoke-Api "/api/projects" -Method "POST" -Body @{ name = "Structured workflow" }).Body.id
+$fixtureDir = Join-Path $root "internal/structured/testdata"
+foreach ($stage in @("step-01", "step-02", "step-02-5", "step-03", "step-04", "step-05")) {
+    # Use the ordinary template endpoint even when adopting a shipped starter.
+    $active = (Invoke-Api "/api/projects/$structuredProject/template?stage=$stage&scope=global").Body
+    $starter = Get-FileText (Join-Path $root "internal/workspace/starter/$stage.md")
+    $savedTemplate = Invoke-Api "/api/projects/$structuredProject/template" -Method "PUT" -Body @{
+        stage = $stage; scope = "global"; content = $starter; baseHash = $active.hash
+    }
+    Check ("save active template " + $stage) ($savedTemplate.Status -eq 200)
+    $packageQuery = if ($stage -eq "step-05") { "&package=P01" } else { "" }
+    $assembled = Invoke-Api "/api/projects/$structuredProject/assemble?stage=$stage$packageQuery"
+    Check ("assemble structured " + $stage) ($assembled.Status -eq 200 -and ($stage -eq "step-01" -or $assembled.Body.projection.state -eq "ready"))
+    $fixture = Get-FileText (Join-Path $fixtureDir "$stage.md")
+    $kind = if ($stage -eq "step-05") { "package-output" } else { "output" }
+    $body = @{ kind = $kind; stage = $stage; content = $fixture; baseHash = "" }
+    if ($stage -eq "step-05") { $body.package = "P01" }
+    $saved = Invoke-Api "/api/projects/$structuredProject/doc" -Method "PUT" -Body $body
+    Check ("save valid fixture " + $stage) ($saved.Status -eq 200 -and $saved.Body.structured.status -eq "valid")
+    $reloaded = Invoke-Api "/api/projects/$structuredProject/doc?kind=$kind&stage=$stage$packageQuery"
+    Check ("source bytes preserved " + $stage) ($reloaded.Body.content -ceq $fixture)
+    if ($stage -eq "step-04") {
+        $preview = Invoke-Api "/api/projects/$structuredProject/detect-packages" -Method "POST" -Body @{}
+        Check "combined structured preview selects P01" ($preview.Body.structured.status -eq "valid" -and $preview.Body.packages.Count -eq 1)
+        $imported = Invoke-Api "/api/projects/$structuredProject/import-packages" -Method "POST" -Body @{
+            packages = $preview.Body.packages; accept = @("P01"); overwrite = @()
+        }
+        Check "import structured package" ($imported.Status -eq 200 -and $imported.Body.created -contains "P01")
+        $individual = Invoke-Api "/api/projects/$structuredProject/assemble?stage=step-04&package=P01"
+        Check "assemble individual package after combined import" ($individual.Status -eq 200 -and $individual.Body.projection.state -eq "ready")
+        $slot = (Invoke-Api "/api/projects/$structuredProject/doc?kind=package&package=P01").Body
+        $slotEdit = Invoke-Api "/api/projects/$structuredProject/doc" -Method "PUT" -Body @{
+            kind = "package"; package = "P01"; content = $slot.content + "`n"; baseHash = $slot.hash
+        }
+        Check "ordinary slot edit succeeds" ($slotEdit.Status -eq 200)
+        $combinedAfter = (Invoke-Api "/api/projects/$structuredProject/doc?kind=output&stage=step-04").Body
+        Check "slot edit preserves combined source" ($combinedAfter.hash -eq $saved.Body.hash -and $combinedAfter.content -ceq $fixture)
+    }
+}
+$structuredInfo = (Invoke-Api "/api/projects/$structuredProject").Body.packages | Where-Object { $_.id -eq "P01" }
+Check "ready Step 5 artifact means prompt-generated" ($structuredInfo.status -eq "prompt-generated")
+
 # ---------------------------------------------------------------- 12. unsafe input
-Section "12. Path traversal, name validation and traversal rejection"
+Section "13. Path traversal, name validation and traversal rejection"
 
 $cases = @(
     @{ name = "project id ../..";     url = "/api/projects/..%2F..%2Fetc/doc?kind=input&stage=step-01" }
@@ -699,7 +738,7 @@ $bigBody = Invoke-Api "/api/projects/$projA/doc" -Method "PUT" -Body @{
 Check "oversized body refused" ($bigBody.Status -ge 400) ("status " + $bigBody.Status)
 
 # ---------------------------------------------------------------- 11. restart
-Section "13. Persistence across a restart"
+Section "14. Persistence across a restart"
 
 $before = @{
     projects = (Invoke-Api "/api/projects").Body.projects.Count
@@ -740,7 +779,7 @@ if ($script:StartedProcess) {
 }
 
 # ---------------------------------------------------------------- 12. single instance
-Section "14. Single instance, autostart setting and quit"
+Section "15. Single instance, autostart setting and quit"
 
 if ($script:StartedProcess) {
     $second = Start-Process -FilePath $Exe -ArgumentList @("--no-browser") -PassThru -WindowStyle Hidden

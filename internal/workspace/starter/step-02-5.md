@@ -1,151 +1,75 @@
 ---
 id: step-02-5
 stage: step-02-5
-title: Step 2.5 - Tech stack, packages, cost and reusable system context
-description: Locks the technology choices and produces the reusable system context injected into every package prompt.
-assembles: [input, output_step_02]
+title: Step 2.5 - Technology, cost and reusable context
+description: Produces the technology choices and complete typed system context.
+assembles: [user.project_name, handoff, user.notes, contract.schema]
 ---
 
-You are a technology lead turning the chosen high-level design into concrete
-technology decisions, cost estimates, and a reusable context for future sessions.
-
-Choose the stack and durable project rules supported by the supplied design,
-constraints, and available repository evidence. Do not redesign the product,
-expand scope, or invent implementation details reserved for Stage 3.
+You are a technology lead turning an approved high-level design into concrete
+technology choices, cost estimates, and reusable implementation context.
 
 ## Project
 
-- Project name: {{project_name}}
-- Date: {{today}}
+{{user.project_name}}
 
-## High-level design from Step 2
+## Approved design inputs
 
-{{output_step_02}}
+{{handoff}}
 
-## My technology notes and constraints (verbatim)
+## User technology notes and constraints
 
-{{input}}
+{{user.notes}}
 
-## Missing prerequisites
+## Required Markdown sections and matching blocks
 
-{{missing_sources}}
+1. Technology decisions: relevant layers, chosen technology, version or range,
+   rationale, runner-up, and cost.
+2. Suggested tools: relevant capability, tool, purpose, and usage location.
+3. Main libraries grouped by language: engine or capability, version,
+   selection reason, usage location, licence, release evidence,
+   maintenance concerns, and design impact.
+4. APIs and services: protocol, authentication, rate limits, pricing assumptions,
+   failure behavior, contracts, and offline development strategy.
+5. Costs: person-days per area and total; 30% contingency; low, medium, and high
+   monthly usage with units × unit price; scaling triggers; and behavior at 10× load.
+6. Development environment: prerequisites, installation, version pinning,
+   clean-machine setup, and exact build/test/lint/run/release commands.
+7. Security and compliance: secrets, dependency updates, scanning, data rules,
+   and applicable compliance.
+8. Observability: named logs, metrics, health checks, and production diagnosis.
+9. Stack risks, assumptions, unresolved questions, and rejected technologies.
 
-## Working rules
+## Main-library selection rule
 
-- Preserve upstream decisions and requirement IDs. Record explicit user corrections.
-  Flag material contradictions with their source sections; do not silently choose
-  a winner or replace an architectural decision.
-- Distinguish [supplied], [verified external], [inference], and [assumption].
-  Mark new technology choices as decisions and explain their evidence and rationale.
-- Verify changing external information when tools permit. Cite the actual official
-  source and access date for versions, prices, licences, limits, or support claims.
-  If verification is unavailable, say so; do not invent exact values or sources.
-- Distinguish observed repository facts, supplied repository descriptions, and
-  planned structure. A proposed command is not an existing runnable command.
-- Ask only questions that materially affect scope, architecture, safety, cost,
-  or acceptance. Continue unaffected work with labeled assumptions.
-  Do not mark a material unresolved choice as pinned.
-- Include only applicable layers and services. Do not add infrastructure, tools,
-  policies, or dependencies merely to fill a section.
+Include only MAIN libraries that materially affect system design, performance,
+quality, or output. For an OCR system, this can include the OCR engine and
+PDF/image-processing libraries.
 
-## What I need from you
-
-Use the following headings exactly and in order.
-
-### 1. Technology decisions
-Give a concise table: layer, choice, version or supported range, evidence/status,
-requirement or decision served, tradeoff, and cost implications.
-Keep supplied pins unless an explicit change is recorded. Identify unresolved
-pins instead of inventing versions.
-
-### 2. Dependency list
-List direct dependencies needed by the design: purpose, version status, licence,
-criticality, and material maintenance risks. Include release or maintainer facts
-only when verified. Distinguish required dependencies from optional proposals.
-
-### 3. APIs and services
-Identify external services and public interfaces. State known protocols,
-authentication, limits, cost model, failure behavior, and local testing or
-stubbing approach. Keep unknown contracts explicit.
-
-### 4. Cost estimates
-Provide:
-- Build cost: effort ranges, work areas, estimation basis, and uncertainty.
-- Monthly running cost: low, medium, and high usage scenarios where meaningful,
-  with units × unit price, currency, region, pricing date/source, and exclusions.
-- Scaling triggers: relevant metrics, justified thresholds, and consequences.
-
-Label workload and effort assumptions. Show contingency separately and justify it;
-a percentage is a planning assumption, not a verified fact.
-For unknown prices, show the formula and missing input instead of a fabricated
-total. Describe sensitivity to the largest uncertain inputs, including 10× usage
-where meaningful. Separate monetary cost from engineering effort.
-
-### 5. Development environment
-Describe the toolchain, pinning method, configuration, and setup.
-List build, test, lint, run, and release commands only where supported by repository
-evidence or an explicit planned setup decision. Label existing versus planned.
-Do not imply a command has run successfully.
-
-### 6. Security and compliance
-Specify supported rules for secrets, data handling, dependencies, and relevant
-security checks. Separate established obligations from recommendations or unknowns.
-
-### 7. Observability
-Define signals needed to diagnose the design's important failures. Prefer existing
-conventions and capabilities; do not add an observability platform without a reason.
-
-### 8. Risks and mitigations
-Record stack and operating risks, assumptions, material conflicts, early signals,
-and validation actions. Identify unresolved choices that block implementation.
-
-### 9. Rejected technologies
-Record meaningful alternatives rejected, the reason, and what would justify
-reconsideration. Do not invent a comparison history.
+Exclude generic HTTP/REST clients, utility collections, and routine plumbing.
+For every included library, name its design impact and where it is used.
+Do not populate irrelevant categories or invent dependency facts.
+Record an in-house capability choice and its effort when relevant.
 
 ## Reusable System Context
 
-Write this exact level-two heading once. Everything following it must belong to
-the reusable context. Use bold labels or level-three-or-deeper headings inside
-it, including the final Handoff. Do not introduce another level-one or level-two
-heading afterward.
+Make this the final substantive Markdown section before the JSON footer.
+Render the complete technology and system_context blocks as a self-contained
+reference for a competent developer who has not seen this conversation.
 
-Keep this section self-contained and normally within 1200 words. Include durable
-facts and rules supported by the supplied materials or decisions explicitly made
-above. Preserve provenance and unresolved status where it matters.
+Include mission; stack and commands; repository paths; public contracts;
+naming, file, error, logging, comment, time, path, and configuration conventions;
+correct pattern examples; anti-patterns; invariants; testing standards;
+10–20 useful domain terms; performance/resource budgets; and an extension recipe.
 
-Use these labels in order:
+Keep this Markdown section near 1200 words. The JSON must retain the exact
+details needed by later stages. Do not use a synopsis, TBD, or conversation references.
+If an essential fact is unknown, identify the blocker or labelled assumption.
 
-1. **Mission** — purpose, users, scope, and explicit non-goals.
-2. **Stack** — chosen technologies, supported pins, and commands with their
-   existing or planned status.
-3. **Repository layout** — supported paths and responsibilities. Clearly identify
-   planned paths; never describe an uninspected path as existing.
-4. **Interfaces and contracts** — established boundaries and contracts that
-   packages must share. Leave unestablished signatures to Stage 3.
-5. **Conventions** — supported naming, errors, configuration, logging, data,
-   time, and path rules relevant to this project.
-6. **Patterns to follow** — established patterns and source examples when available.
-   Do not invent examples and describe them as existing repository practice.
-7. **Anti-patterns** — specific prohibited behavior with its project-specific reason.
-8. **Invariants and constraints** — rules that must remain true, tied to requirements
-   or decisions.
-9. **Testing standards** — supported tooling, relevant test levels, execution
-   prerequisites, and evidence required before claiming completion.
-10. **Glossary** — only domain terms needed to interpret interfaces and requirements.
-11. **Performance and resource budgets** — supplied or explicitly adopted limits,
-    measurement conditions, and their status.
-12. **Extension recipe** — supported steps for extending the system consistently,
-    including interface, registration, and testing rules where established.
+## Output contract
 
-If a category lacks supported information, say "Not established in supplied
-materials" and identify any necessary follow-up in the handoff. Do not fill gaps
-with generic rules, invented paths, or speculative facts. Keep volatile pricing
-details and rejected alternatives outside this reusable section.
+Write the complete Markdown answer, then exactly one marked BuildFlow JSON footer
+using the marker layout and contract rules supplied with this schema.
+The blocks are the complete structured handoff. Do not add a summary field.
 
-### Handoff
-
-State what Stage 3 should use: chosen stack, durable rules, interfaces, invariants,
-and requirement/decision IDs. List unresolved choices, verification needs, and
-whether the context is ready for implementation planning. This handoff remains
-inside the extracted Reusable System Context.
+{{contract.schema}}

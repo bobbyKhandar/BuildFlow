@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"buildflow/internal/appdata"
+	"buildflow/internal/structured"
 	"buildflow/internal/workspace"
 )
 
@@ -273,10 +274,11 @@ func (s *Server) handleStages(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = readable
 	writeJSON(w, http.StatusOK, map[string]any{
-		"stages":   out,
-		"readable": ids,
-		"tokens":   workspace.KnownTokens,
-		"starter":  workspace.StarterTemplateIDs(),
+		"stages":    out,
+		"readable":  ids,
+		"tokens":    workspace.KnownTokens,
+		"tokenHelp": workspace.TokenHelp,
+		"starter":   workspace.StarterTemplateIDs(),
 	})
 }
 
@@ -468,7 +470,10 @@ func (s *Server) handleGetDoc(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, doc)
+	writeJSON(w, http.StatusOK, struct {
+		workspace.Doc
+		Structured *structured.Result `json:"structured,omitempty"`
+	}{doc, s.svc.InspectDocument(id, doc)})
 }
 
 type putDocRequest struct {
@@ -478,6 +483,41 @@ type putDocRequest struct {
 	Content  string `json:"content"`
 	BaseHash string `json:"baseHash"`
 	Force    bool   `json:"force"`
+}
+
+type structuredPreviewRequest struct {
+	Kind      string `json:"kind"`
+	Stage     string `json:"stage"`
+	PackageID string `json:"packageId"`
+	Content   string `json:"content"`
+}
+
+func (s *Server) handleStructuredPreview(w http.ResponseWriter, r *http.Request) {
+	if !s.requireWorkspace(w) {
+		return
+	}
+	var req structuredPreviewRequest
+	if !readBody(w, r, &req) {
+		return
+	}
+	id := r.PathValue("id")
+	if _, err := workspace.Resolve(req.Kind, req.Stage, req.PackageID, id); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if _, err := s.svc.GetProject(id); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	// Inspect the supplied content directly; a draft need not exist on disk.
+	result := s.svc.InspectDocument(id, workspace.Doc{
+		Kind: req.Kind, Stage: req.Stage, Package: req.PackageID, Content: req.Content,
+	})
+	if result == nil {
+		writeError(w, http.StatusBadRequest, "document target does not support structured data")
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (s *Server) handlePutDoc(w http.ResponseWriter, r *http.Request) {
@@ -510,52 +550,10 @@ func (s *Server) handlePutDoc(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	s.afterWrite(id, req.Kind, req.Stage, req.Package, content)
-	writeJSON(w, http.StatusOK, doc)
-}
-
-// afterWrite feeds a freshly saved document into the place that needs it next:
-// a stage output into the following step's input, and a work package into that
-// package's Step 5 input notes. Both copies are marked and idempotent, so saving
-// the same output twice updates the copy instead of appending a second one.
-func (s *Server) afterWrite(project, kind, stage, pkg, content string) {
-	switch {
-	case kind == workspace.KindOutput:
-		next := workspace.NextStageID(stage)
-		if next == "" {
-			return
-		}
-		s.copyIntoInput(project, workspace.KindInput, next, "", content, stage)
-	case kind == workspace.KindPackage:
-		if err := workspace.ValidatePackageID(pkg); err != nil {
-			return
-		}
-		body := workspace.StripFrontMatter(content)
-		s.copyIntoInput(project, workspace.KindPackageInput, "step-05", pkg, body, "step-04")
-	}
-}
-
-// copyIntoInput merges source into the target input document and writes it back.
-// A failure is logged but never surfaced: the save the user asked for has already
-// succeeded, and a copy that could not be made is not a reason to undo it.
-func (s *Server) copyIntoInput(project, kind, stage, pkg, source, fromStage string) {
-	doc, err := s.svc.ReadDoc(kind, stage, pkg, project)
-	if err != nil {
-		s.log.Warnf("auto-copy: cannot read %s: %v", fromStage, err)
-		return
-	}
-	merged := workspace.MergeAutoCopy(doc.Content, source, fromStage)
-	if merged == doc.Content {
-		return
-	}
-	if _, err := s.svc.WriteDoc(workspace.WriteRequest{
-		Kind: kind, Stage: stage, Package: pkg, Project: project,
-		Content: merged, BaseHash: doc.Hash, Force: true,
-	}); err != nil {
-		s.log.Warnf("auto-copy: cannot write %s: %v", fromStage, err)
-		return
-	}
-	s.log.Infof("copied %s output into %s input", fromStage, stage)
+	writeJSON(w, http.StatusOK, struct {
+		workspace.Doc
+		Structured *structured.Result `json:"structured,omitempty"`
+	}{doc, s.svc.InspectDocument(id, doc)})
 }
 
 func (s *Server) handleDeleteDoc(w http.ResponseWriter, r *http.Request) {
