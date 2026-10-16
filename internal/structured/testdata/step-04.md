@@ -2,6 +2,15 @@
 
 Preserve this narrative verbatim.
 
+## P01 - Save documents
+
+Implement atomic saves in `store.go` and verify failed saves preserve the original.
+Consume C-2, produce C-1, and satisfy AC-1 with T-1.
+
+## Delivery Overview
+
+Build P01 first. No additional packages or integration points are required.
+
 ## BuildFlow Structured View
 
 <!-- buildflow:view:start -->
