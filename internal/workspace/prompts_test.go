@@ -21,9 +21,16 @@ func TestStarterPlaceholdersAndNoteWiring(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	for _, doc := range projectionTestDocuments(t) {
-		write(doc.Kind, doc.Stage, doc.Package, doc.Content)
+	// Save upstream stages before the package so the freshness check does not
+	// depend on Go map iteration order.
+	documents := projectionTestDocuments(t)
+	for _, stage := range StageIDs() {
+		if doc, ok := documents[projectionDocKey(KindOutput, stage, "")]; ok {
+			write(doc.Kind, doc.Stage, doc.Package, doc.Content)
+		}
 	}
+	packageDoc := documents[projectionDocKey(KindPackage, "step-04", "P01")]
+	write(packageDoc.Kind, packageDoc.Stage, packageDoc.Package, packageDoc.Content)
 	for _, stage := range StageIDs() {
 		write(KindInput, stage, "", "CURRENT_NOTES_"+stage+"\n<!-- buildflow:auto:step-01 -->\nLEGACY_COPIED_ANSWER\n<!-- /buildflow:auto:step-01 -->")
 	}

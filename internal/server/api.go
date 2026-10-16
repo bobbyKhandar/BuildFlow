@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"buildflow/internal/appdata"
+	"buildflow/internal/structured"
 	"buildflow/internal/workspace"
 )
 
@@ -469,7 +470,10 @@ func (s *Server) handleGetDoc(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, doc)
+	writeJSON(w, http.StatusOK, struct {
+		workspace.Doc
+		Structured *structured.Result `json:"structured,omitempty"`
+	}{doc, s.svc.InspectDocument(id, doc)})
 }
 
 type putDocRequest struct {
@@ -511,7 +515,10 @@ func (s *Server) handlePutDoc(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, doc)
+	writeJSON(w, http.StatusOK, struct {
+		workspace.Doc
+		Structured *structured.Result `json:"structured,omitempty"`
+	}{doc, s.svc.InspectDocument(id, doc)})
 }
 
 func (s *Server) handleDeleteDoc(w http.ResponseWriter, r *http.Request) {

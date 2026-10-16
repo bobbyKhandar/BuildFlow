@@ -1,6 +1,7 @@
 package workspace
 
 import (
+	"buildflow/internal/structured"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -27,17 +28,22 @@ type DetectedPackage struct {
 	ExistsModified time.Time `json:"existsModified,omitempty"`
 	ExistingChars  int       `json:"existingChars,omitempty"`
 	// Warnings explains why a package might be wrong, e.g. duplicate ids.
-	Warnings []string `json:"warnings,omitempty"`
+	Warnings   []string           `json:"warnings,omitempty"`
+	Structured *structured.Result `json:"structured,omitempty"`
+	Projection *AssemblySource    `json:"projection,omitempty"`
 }
 
 // DetectionResult is the full preview returned to the user.
 type DetectionResult struct {
-	Source      string            `json:"source"`
-	TotalLines  int               `json:"totalLines"`
-	Packages    []DetectedPackage `json:"packages"`
-	Unassigned  string            `json:"unassigned"`
-	Warnings    []string          `json:"warnings"`
-	TextPreview string            `json:"textPreview,omitempty"`
+	Source      string             `json:"source"`
+	TotalLines  int                `json:"totalLines"`
+	Packages    []DetectedPackage  `json:"packages"`
+	Unassigned  string             `json:"unassigned"`
+	Warnings    []string           `json:"warnings"`
+	TextPreview string             `json:"textPreview,omitempty"`
+	Overview    string             `json:"overview,omitempty"`
+	Footer      string             `json:"footer,omitempty"`
+	Structured  *structured.Result `json:"structured,omitempty"`
 }
 
 // packageHeadingPatterns recognise the common ways a Step 4 output names work
@@ -49,7 +55,7 @@ var packageHeadingPatterns = []*regexp.Regexp{
 	// "**Work Package P01** - Title" (bold, not a heading)
 	regexp.MustCompile(`(?i)^(?:[-*+]\s+|\d+[.)]\s+)?\*{0,2}\s*(?:work\s*package|package|wp)\s*\**\s*[:#\-–—]?\s*(P\d{1,3})\b[\s.:,\-–—]*\**\s*(.*)$`),
 	// "P01 - Title" / "P01: Title" on its own line
-	regexp.MustCompile(`(?i)^(?:[-*+]\s+|\d+[.)]\s+)?\**\s*(P\d{1,3})\b\**\s*[.:,\-–—]\s+\S.*$`),
+	regexp.MustCompile(`(?i)^(?:[-*+]\s+|\d+[.)]\s+)?\**\s*(P\d{1,3})\b\**\s*[.:,\-–—]\s+(\S.*)$`),
 	// "## P01" with nothing else on the line
 	regexp.MustCompile(`(?i)^(#{1,6})\s*(?:work\s*package|package|wp)?\s*[:#\-–—]?\s*(P\d{1,3})\s*$`),
 }
@@ -71,13 +77,24 @@ func findPackageHeadings(text string) []headingHit {
 		if strings.TrimSpace(trimmed) == "" {
 			continue
 		}
-		for _, re := range packageHeadingPatterns {
+		for pattern, re := range packageHeadingPatterns {
 			m := re.FindStringSubmatch(trimmed)
 			if m == nil {
 				continue
 			}
-			id := strings.ToUpper(m[2])
-			title := strings.TrimSpace(m[3])
+			level := 0
+			var id, title string
+			switch pattern {
+			case 0, 3:
+				level = len(m[1])
+				id = m[2]
+				if len(m) > 3 {
+					title = m[3]
+				}
+			case 1, 2:
+				id, title = m[1], m[2]
+			}
+			id = strings.ToUpper(id)
 			title = strings.Trim(title, "*-_ \t")
 			if title == "" {
 				// Maybe the title is on the following line.
@@ -87,10 +104,6 @@ func findPackageHeadings(text string) []headingHit {
 						title = next
 					}
 				}
-			}
-			level := 0
-			if m[1] != "" {
-				level = len(m[1])
 			}
 			// Ignore duplicates of the exact same heading line.
 			if n := len(hits); n > 0 && hits[n-1].line == i {
@@ -110,16 +123,31 @@ func dropFencedHits(lines []string, hits []headingHit) []headingHit {
 		return nil
 	}
 	fenced := make([]bool, len(lines))
-	inside := false
-	for i, l := range lines {
-		t := strings.TrimSpace(l)
-		if strings.HasPrefix(t, "```") || strings.HasPrefix(t, "~~~") {
-			fenced[i] = true
-			inside = !inside
-			continue
+	var fenceChar byte
+	width := 0
+	for i, line := range lines {
+		t := strings.TrimSpace(line)
+		if len(t) >= 3 && (t[0] == '`' || t[0] == '~') {
+			n := 0
+			for n < len(t) && t[n] == t[0] {
+				n++
+			}
+			if n >= 3 {
+				if fenceChar == 0 {
+					fenceChar, width = t[0], n
+					fenced[i] = true
+					continue
+				}
+				if t[0] == fenceChar && n >= width && strings.TrimSpace(t[n:]) == "" {
+					fenced[i] = true
+					fenceChar = 0
+					continue
+				}
+			}
 		}
-		fenced[i] = inside
+		fenced[i] = fenceChar != 0
 	}
+
 	var out []headingHit
 	for _, h := range hits {
 		if h.line < len(fenced) && fenced[h.line] {
@@ -136,12 +164,35 @@ func (s *Service) DetectPackages(project, step04Content string) (DetectionResult
 	if _, err := s.ProjectPath(project); err != nil {
 		return DetectionResult{}, err
 	}
-	res := DetectionResult{Source: "outputs/step-04.md"}
+	res := DetectionResult{Source: "outputs/step-04.md", Packages: []DetectedPackage{}, Warnings: []string{}}
 	normalized := strings.ReplaceAll(step04Content, "\r\n", "\n")
-	lines := strings.Split(normalized, "\n")
-	res.TotalLines = len(lines)
-	hits := findPackageHeadings(normalized)
+	res.TotalLines = len(strings.Split(normalized, "\n"))
+	parsed := s.InspectDocument(project, Doc{Kind: KindOutput, Stage: "step-04", Content: normalized})
+	res.Structured = parsed
+	narrative := normalized
+	footerStart := -1
+	if parsed != nil {
+		footerStart = parsed.FooterStart
+	}
+	if footerStart < 0 {
+		footerStart = outsideHeadingOffset(normalized, "## BuildFlow Structured View")
+	}
+	if footerStart >= 0 {
+		narrative = normalized[:footerStart]
+		res.Footer = normalized[footerStart:]
+	}
+	if overview := deliveryOverviewOffset(narrative); overview >= 0 {
+		res.Overview = narrative[overview:]
+		narrative = narrative[:overview]
+	}
+	lines := strings.Split(strings.TrimRight(narrative, "\n"), "\n")
+	hits := findPackageHeadings(strings.Join(lines, "\n"))
+	if parsed == nil || parsed.Status != structured.Valid {
+		res.Warnings = append(res.Warnings, "Structured Stage 4 data is unavailable or invalid; review the Markdown split before importing.")
+	}
+
 	if len(hits) == 0 {
+		res.Unassigned = narrative
 		res.Warnings = append(res.Warnings,
 			"No package headings were found. Expected headings such as \"## P01 - Title\". "+
 				"You can still create packages manually with the \"Add next package\" action.")
@@ -153,6 +204,13 @@ func (s *Service) DetectPackages(project, step04Content string) (DetectionResult
 	firstLine := hits[0].line
 	res.Unassigned = strings.TrimSpace(strings.Join(lines[:firstLine], "\n"))
 
+	var design *structured.Envelope
+	if doc, err := s.ReadDoc(KindOutput, "step-03", "", project); err == nil && doc.Exists {
+		result := structured.Parse(doc.Content, structured.Target{Stage: "step-03", Scope: "stage"})
+		if result.Status == structured.Valid {
+			design = result.Artifact
+		}
+	}
 	seen := map[string]int{}
 	for n, h := range hits {
 		end := len(lines)
@@ -177,18 +235,43 @@ func (s *Service) DetectPackages(project, step04Content string) (DetectionResult
 		}
 		seen[norm]++
 		if seen[norm] > 1 {
-			// A repeated id is ambiguous: keep the first, warn about the rest.
-			dp.Warnings = append(dp.Warnings,
-				fmt.Sprintf("%s appears more than once; only the first occurrence is imported", norm))
+			// Preserve duplicate content for review, but import only the first.
+			res.Warnings = append(res.Warnings, norm+" appears more than once; only the first occurrence is imported")
+			res.Unassigned += "\n\n" + body
 			continue
 		}
+		if parsed != nil && parsed.Status == structured.Valid {
+			projected, provenance, err := projectPackageFooter(parsed.Artifact, norm, h.title, res.Source, hashBytes([]byte(step04Content)), design)
+			if err != nil {
+				res.Unassigned += "\n\n" + body
+				res.Warnings = append(res.Warnings, err.Error())
+				continue
+			}
+			dp.Content += "\n" + projected
+			dp.Projection = provenance
+		}
+		dp.Structured = s.InspectDocument(project, Doc{Kind: KindPackage, Package: norm, Content: dp.Content})
 		res.Packages = append(res.Packages, dp)
 	}
 
-	// Report anything above the first heading that looks like real content.
+	if parsed != nil && parsed.Status == structured.Valid {
+		for _, pkg := range parsed.Blocks.(*structured.WorkPackageBlocks).Packages {
+			matched := false
+			for _, detected := range res.Packages {
+				if detected.ID == pkg.ID {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				res.Warnings = append(res.Warnings, pkg.ID+" has no matching Markdown package heading and title; it will not be imported")
+			}
+		}
+	}
+	// Report combined content that was not assigned to a package.
 	if res.Unassigned != "" {
 		res.Warnings = append(res.Warnings,
-			"There is text above the first package heading. It is not part of any package; copy it into the right place before importing.")
+			"Some combined answer content is unassigned and will not be imported; review it before importing.")
 	}
 
 	// Annotate existing files so the UI can protect hand-edited packages.
@@ -257,6 +340,16 @@ func (s *Service) ImportPackages(project string, req ImportRequest) (ImportResul
 		Overwritten: []string{},
 		Refused:     []string{},
 	}
+	seenIDs := map[string]bool{}
+	for _, p := range req.Packages {
+		if err := ValidatePackageID(p.ID); err != nil {
+			return result, err
+		}
+		if seenIDs[p.ID] {
+			return result, fmt.Errorf("duplicate package id %q", p.ID)
+		}
+		seenIDs[p.ID] = true
+	}
 	accept := toSet(req.Accept)
 	overwrite := toSet(req.Overwrite)
 
@@ -278,10 +371,15 @@ func (s *Service) ImportPackages(project string, req ImportRequest) (ImportResul
 			result.Skipped = append(result.Skipped, p.ID)
 			continue
 		}
-		force := existing.Exists
+		// The preview hash, rather than a fresh read, is the write precondition.
+		if existing.Hash != p.ExistsHash || existing.Exists != p.FileExists {
+			result.Refused = append(result.Refused, p.ID)
+			result.Skipped = append(result.Skipped, p.ID)
+			continue
+		}
 		if _, err := s.WriteDoc(WriteRequest{
 			Kind: KindPackage, Package: p.ID, Project: project,
-			Content: content, BaseHash: existing.Hash, Force: force,
+			Content: content, BaseHash: p.ExistsHash,
 		}); err != nil {
 			var ce *ConflictError
 			if ok := asConflict(err, &ce); ok {
@@ -392,6 +490,7 @@ func (s *Service) ListPackages(project string) ([]PackageInfo, error) {
 			continue
 		}
 		info := PackageInfo{ID: norm, Status: "empty"}
+		validPrompt := false
 		if doc, err := s.ReadDoc(KindPackage, "", norm, project); err == nil && doc.Exists {
 			info.HasPackageDoc = true
 			info.PackageDocHash = doc.Hash
@@ -407,10 +506,14 @@ func (s *Service) ListPackages(project string) ([]PackageInfo, error) {
 			info.HasOutput = true
 			info.OutputHash = doc.Hash
 			info.OutputModified = doc.ModTime
+			parsed := s.InspectDocument(project, doc)
+			validPrompt = parsed != nil && parsed.Status == structured.Valid && parsed.Artifact.State == "ready"
 		}
 		switch {
-		case info.HasPackageDoc && info.HasSnapshot && info.HasOutput:
-			info.Status = "done"
+		case validPrompt:
+			info.Status = "prompt-generated"
+		case info.HasOutput:
+			info.Status = "output-saved"
 		case info.HasSnapshot:
 			info.Status = "prompt-ready"
 		case info.HasPackageDoc:
@@ -540,12 +643,15 @@ func (s *Service) CreatePackage(project, requestedID, title string) (PackageInfo
 // that package and the package content itself. Filling a slot's output is what
 // creates the matching Step 5 work package.
 type Step4Slot struct {
-	ID         string `json:"id"`
-	Title      string `json:"title"`
-	Input      string `json:"input"`
-	Output     string `json:"output"`
-	HasPackage bool   `json:"hasPackage"`
-	HasInput   bool   `json:"hasInput"`
+	ID         string             `json:"id"`
+	Title      string             `json:"title"`
+	Input      string             `json:"input"`
+	Output     string             `json:"output"`
+	HasPackage bool               `json:"hasPackage"`
+	HasInput   bool               `json:"hasInput"`
+	InputHash  string             `json:"inputHash"`
+	OutputHash string             `json:"outputHash"`
+	Structured *structured.Result `json:"structured,omitempty"`
 }
 
 // ListStep4Slots returns the work-package slots for Step 4, merging the
@@ -580,11 +686,14 @@ func (s *Service) ListStep4Slots(project string) ([]Step4Slot, error) {
 		slot := Step4Slot{ID: norm}
 		if doc, err := s.ReadDoc(KindPackage, "", norm, project); err == nil && doc.Exists {
 			slot.Output = doc.Content
+			slot.OutputHash = doc.Hash
+			slot.Structured = s.InspectDocument(project, doc)
 			slot.HasPackage = true
 			slot.Title = packageTitleFromContent(doc.Content, norm)
 		}
 		if doc, err := s.ReadDoc(KindStep4Input, "step-04", norm, project); err == nil {
 			slot.Input = doc.Content
+			slot.InputHash = doc.Hash
 			slot.HasInput = strings.TrimSpace(doc.Content) != ""
 		}
 		out = append(out, slot)
@@ -600,14 +709,16 @@ func (s *Service) ListStep4Slots(project string) ([]Step4Slot, error) {
 			filled++
 		}
 	}
-	for len(out) < filled+1 {
-		next, err := s.NextPackageID(project)
-		if err != nil {
-			break
+	if len(out) < filled+1 {
+		max := 0
+		for _, slot := range out {
+			if n := packageNumber(slot.ID); n > max {
+				max = n
+			}
 		}
-		out = append(out, Step4Slot{ID: next})
-		sortStep4Slots(out)
+		out = append(out, Step4Slot{ID: fmt.Sprintf("P%02d", max+1)})
 	}
+
 	return out, nil
 }
 

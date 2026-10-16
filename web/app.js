@@ -380,7 +380,8 @@
         empty: 'no package file',
         ready: 'package description only',
         'prompt-ready': 'prompt snapshot saved, no output yet',
-        done: 'prompt snapshot and output saved',
+        'prompt-generated': 'validated coding prompt saved',
+        'output-saved': 'legacy or unstructured Stage 5 answer saved',
       }[p.status] || p.status;
       btn.appendChild(st);
       btn.addEventListener('click', () => selectPackage(p.id));
@@ -427,8 +428,8 @@
       state.step4Hashes = {};
       state.step4Slots.forEach((s) => {
         state.step4Hashes[s.id] = {
-          inputHash: s.hasInput ? hashOf(s.input) : '',
-          outputHash: s.hasPackage ? hashOf(s.output) : '',
+          inputHash: s.inputHash || '',
+          outputHash: s.outputHash || '',
         };
       });
       renderStep4Slots();
@@ -483,7 +484,7 @@
       inBtn.dataset.slotInput = s.id;
       slot.appendChild(inBtn);
 
-      slot.appendChild(el('label', null, 'Work package (output)'));
+      slot.appendChild(el('label', null, 'Saved package source (independent of combined answer)'));
       const output = el('textarea', 'editor');
       output.value = s.output || '';
       output.rows = 8;
@@ -533,8 +534,8 @@
         method: 'PUT',
         body: { kind: 'package', stage: '', package: id, content: content, baseHash: baseHash },
       });
-      // Saving a package copies it into that package's Step 5 input.
-      toast(id + ' saved to ' + doc.path + ' and copied to its Step 5 input.', 'ok');
+      // Saved package documents are the source for Stage 5.
+      toast(id + ' saved to ' + doc.path + '. This is the saved source for Stage 5.', 'ok');
       await refreshProject();
       await loadStep4Slots();
     } catch (err) {
@@ -549,18 +550,6 @@
 
   function cssEscape(s) {
     return String(s).replace(/["\\]/g, '\\$&');
-  }
-
-  // A tiny non-cryptographic hash for remembering what the editor last sent.
-  // This is only used to decide whether a save would change anything, never
-  // for security, so a short string hash is plenty.
-  function hashOf(s) {
-    let h = 0;
-    const str = s || '';
-    for (let i = 0; i < str.length; i++) {
-      h = ((h << 5) - h + str.charCodeAt(i)) | 0;
-    }
-    return 'h' + (h >>> 0).toString(36);
   }
 
   function renderProjects() {
@@ -1243,11 +1232,11 @@
     });
 
     const un = $('detectUnassigned');
-    if (res.unassigned) {
+    if (res.unassigned || res.overview) {
       un.hidden = false;
       un.textContent = '';
-      un.appendChild(el('h3', null, 'Text above the first heading (not imported)'));
-      un.appendChild(el('pre', 'logbox', res.unassigned));
+      un.appendChild(el('h3', null, 'Combined source content (not imported)'));
+      un.appendChild(el('pre', 'logbox', [res.unassigned, res.overview].filter(Boolean).join('\n\n')));
     } else {
       un.hidden = true;
     }
