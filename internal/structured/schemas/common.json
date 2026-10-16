@@ -1,0 +1,4465 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "Applicability": {
+      "type": "object",
+      "properties": {
+        "scope": {
+          "enum": [
+            "global",
+            "linked"
+          ]
+        },
+        "requirement_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "component_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "module_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "contract_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "scope",
+        "requirement_ids",
+        "component_ids",
+        "module_ids",
+        "contract_ids"
+      ],
+      "additionalProperties": false
+    },
+    "AcceptanceCriterion": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "statement": {
+          "type": "string"
+        },
+        "requirement_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "module_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "test_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "statement",
+        "requirement_ids",
+        "module_ids",
+        "test_ids"
+      ],
+      "additionalProperties": false
+    },
+    "OperationalDecision": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "choice": {
+          "type": "string"
+        },
+        "revisit_when": {
+          "type": "string"
+        },
+        "applies_to": {
+          "$ref": "#/$defs/Applicability"
+        }
+      },
+      "required": [
+        "id",
+        "choice",
+        "revisit_when",
+        "applies_to"
+      ],
+      "additionalProperties": false
+    },
+    "Component": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string"
+        },
+        "responsibilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "owns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "responsibilities",
+        "owns"
+      ],
+      "additionalProperties": false
+    },
+    "Confidence": {
+      "enum": [
+        "verified",
+        "inferred",
+        "assumption"
+      ]
+    },
+    "Level": {
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "unknown"
+      ]
+    },
+    "Basis": {
+      "type": "object",
+      "properties": {
+        "confidence": {
+          "$ref": "#/$defs/Confidence"
+        },
+        "source_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "assumption_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "confidence",
+        "source_ids",
+        "assumption_ids"
+      ],
+      "additionalProperties": false
+    },
+    "Source": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "user_input",
+            "url",
+            "upstream_block",
+            "repository"
+          ]
+        },
+        "locator": {
+          "type": "string"
+        },
+        "checked_on": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "confidence": {
+          "$ref": "#/$defs/Confidence"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "locator",
+        "checked_on",
+        "confidence"
+      ],
+      "additionalProperties": false
+    },
+    "Assumption": {
+      "type": "object",
+      "properties": {
+        "applies_to": {
+          "$ref": "#/$defs/Applicability"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "statement": {
+          "type": "string"
+        },
+        "consequence_if_wrong": {
+          "type": "string"
+        },
+        "validation": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "applies_to",
+        "id",
+        "statement",
+        "consequence_if_wrong",
+        "validation"
+      ],
+      "additionalProperties": false
+    },
+    "Risk": {
+      "type": "object",
+      "properties": {
+        "applies_to": {
+          "$ref": "#/$defs/Applicability"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string"
+        },
+        "likelihood": {
+          "$ref": "#/$defs/Level"
+        },
+        "impact": {
+          "$ref": "#/$defs/Level"
+        },
+        "early_signal": {
+          "type": "string"
+        },
+        "mitigation": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "applies_to",
+        "id",
+        "title",
+        "category",
+        "likelihood",
+        "impact",
+        "early_signal",
+        "mitigation"
+      ],
+      "additionalProperties": false
+    },
+    "Question": {
+      "type": "object",
+      "properties": {
+        "applies_to": {
+          "$ref": "#/$defs/Applicability"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "question": {
+          "type": "string"
+        },
+        "why_it_matters": {
+          "type": "string"
+        },
+        "cheapest_check": {
+          "type": "string"
+        },
+        "blocking": {
+          "type": "boolean"
+        },
+        "recommended_default": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "resolve_by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "applies_to",
+        "id",
+        "question",
+        "why_it_matters",
+        "cheapest_check",
+        "blocking",
+        "recommended_default",
+        "resolve_by"
+      ],
+      "additionalProperties": false
+    },
+    "CommonBlocks": {
+      "type": "object",
+      "properties": {
+        "assumptions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Assumption"
+          }
+        },
+        "risks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Risk"
+          }
+        },
+        "open_questions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Question"
+          }
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Source"
+          }
+        }
+      },
+      "required": [
+        "assumptions",
+        "risks",
+        "open_questions",
+        "sources"
+      ],
+      "additionalProperties": false
+    },
+    "Requirement": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "functional",
+            "non_functional"
+          ]
+        },
+        "area": {
+          "type": "string"
+        },
+        "statement": {
+          "type": "string"
+        },
+        "measurable_target": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rationale": {
+          "type": "string"
+        },
+        "basis": {
+          "$ref": "#/$defs/Basis"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "area",
+        "statement",
+        "measurable_target",
+        "rationale",
+        "basis"
+      ],
+      "additionalProperties": false
+    },
+    "Constraint": {
+      "type": "object",
+      "properties": {
+        "applies_to": {
+          "$ref": "#/$defs/Applicability"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "statement": {
+          "type": "string"
+        },
+        "strength": {
+          "enum": [
+            "hard",
+            "preference"
+          ]
+        },
+        "negotiable": {
+          "type": "boolean"
+        },
+        "basis": {
+          "$ref": "#/$defs/Basis"
+        }
+      },
+      "required": [
+        "applies_to",
+        "id",
+        "statement",
+        "strength",
+        "negotiable",
+        "basis"
+      ],
+      "additionalProperties": false
+    },
+    "Decision": {
+      "type": "object",
+      "properties": {
+        "applies_to": {
+          "$ref": "#/$defs/Applicability"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "choice": {
+          "type": "string"
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "tradeoffs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "revisit_when": {
+          "type": "string"
+        },
+        "basis": {
+          "$ref": "#/$defs/Basis"
+        }
+      },
+      "required": [
+        "applies_to",
+        "id",
+        "choice",
+        "reasons",
+        "tradeoffs",
+        "revisit_when",
+        "basis"
+      ],
+      "additionalProperties": false
+    },
+    "Alternative": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "advantage": {
+          "type": "string"
+        },
+        "disadvantage": {
+          "type": "string"
+        },
+        "riskiest_assumption": {
+          "type": "string"
+        },
+        "rejection_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reconsider_when": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description",
+        "advantage",
+        "disadvantage",
+        "riskiest_assumption",
+        "rejection_reason",
+        "reconsider_when"
+      ],
+      "additionalProperties": false
+    },
+    "Field": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "rules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "type",
+        "required",
+        "rules"
+      ],
+      "additionalProperties": false
+    },
+    "Contract": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "enum": [
+                "component",
+                "module",
+                "service"
+              ]
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
+          "additionalProperties": false
+        },
+        "referenced_contract_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "kind": {
+          "enum": [
+            "function",
+            "type",
+            "endpoint",
+            "command",
+            "schema",
+            "config"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "language": {
+          "type": "string"
+        },
+        "declaration": {
+          "type": "string"
+        },
+        "input_fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Field"
+          }
+        },
+        "output_fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Field"
+          }
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "stability": {
+          "type": "string"
+        },
+        "failure_modes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "configuration": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "has_default": {
+                  "type": "boolean"
+                },
+                "default_literal": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "validation_rules": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "has_default",
+                "default_literal",
+                "validation_rules"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "owner",
+        "referenced_contract_ids",
+        "kind",
+        "name",
+        "language",
+        "declaration",
+        "input_fields",
+        "output_fields",
+        "version",
+        "stability",
+        "failure_modes",
+        "configuration"
+      ],
+      "additionalProperties": false
+    },
+    "FileChange": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "exists": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "action": {
+          "enum": [
+            "create",
+            "modify",
+            "delete"
+          ]
+        },
+        "purpose": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "exists",
+        "action",
+        "purpose"
+      ],
+      "additionalProperties": false
+    },
+    "PlannedTest": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string"
+        },
+        "level": {
+          "enum": [
+            "unit",
+            "integration",
+            "end_to_end",
+            "manual"
+          ]
+        },
+        "file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fixtures": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "assertions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "failure_path": {
+          "type": "boolean"
+        },
+        "command": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "required_for_acceptance": {
+          "type": "boolean"
+        },
+        "requirement_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "contract_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "level",
+        "file",
+        "fixtures",
+        "assertions",
+        "failure_path",
+        "command",
+        "required_for_acceptance",
+        "requirement_ids",
+        "contract_ids"
+      ],
+      "additionalProperties": false
+    },
+    "Effort": {
+      "type": "object",
+      "properties": {
+        "min_person_days": {
+          "type": "number"
+        },
+        "max_person_days": {
+          "type": "number"
+        },
+        "basis": {
+          "type": "string"
+        },
+        "biggest_unknown": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "min_person_days",
+        "max_person_days",
+        "basis",
+        "biggest_unknown"
+      ],
+      "additionalProperties": false
+    },
+    "ErrorCase": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "contract_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "condition": {
+          "type": "string"
+        },
+        "detected_at": {
+          "type": "string"
+        },
+        "code": {
+          "type": "string"
+        },
+        "user_message": {
+          "type": "string"
+        },
+        "log_level": {
+          "type": "string"
+        },
+        "retry_policy": {
+          "type": "string"
+        },
+        "fatal": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "contract_ids",
+        "condition",
+        "detected_at",
+        "code",
+        "user_message",
+        "log_level",
+        "retry_policy",
+        "fatal"
+      ],
+      "additionalProperties": false
+    },
+    "Algorithm": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "module_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "operation": {
+          "type": "string"
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "pseudocode": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "complexity": {
+          "type": "string"
+        },
+        "input_size": {
+          "type": "string"
+        },
+        "edge_cases": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "condition": {
+                "type": "string"
+              },
+              "handling": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "condition",
+              "handling"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "id",
+        "module_ids",
+        "operation",
+        "steps",
+        "pseudocode",
+        "complexity",
+        "input_size",
+        "edge_cases"
+      ],
+      "additionalProperties": false
+    },
+    "ConcurrencyRule": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "module_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "execution_context": {
+          "type": "string"
+        },
+        "shared_state": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "synchronization": {
+          "type": "string"
+        },
+        "ordering": {
+          "type": "string"
+        },
+        "race_prevention": {
+          "type": "string"
+        },
+        "idempotency": {
+          "type": "string"
+        },
+        "safe_rerun": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "module_ids",
+        "execution_context",
+        "shared_state",
+        "synchronization",
+        "ordering",
+        "race_prevention",
+        "idempotency",
+        "safe_rerun"
+      ],
+      "additionalProperties": false
+    },
+    "StateMachine": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "module_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "entity": {
+          "type": "string"
+        },
+        "states": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "transitions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "from": {
+                "type": "string"
+              },
+              "to": {
+                "type": "string"
+              },
+              "trigger": {
+                "type": "string"
+              },
+              "persistence": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "from",
+              "to",
+              "trigger",
+              "persistence"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "terminal_states": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "crash_recovery": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "module_ids",
+        "entity",
+        "states",
+        "transitions",
+        "terminal_states",
+        "crash_recovery"
+      ],
+      "additionalProperties": false
+    },
+    "Surface": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "module_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "kind": {
+          "enum": [
+            "ui",
+            "cli",
+            "api"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "regions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "states": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "copy": {
+                "type": "string"
+              },
+              "actions": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "name",
+              "copy",
+              "actions"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "keyboard_behavior": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "destructive_actions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "module_ids",
+        "kind",
+        "name",
+        "regions",
+        "states",
+        "keyboard_behavior",
+        "destructive_actions"
+      ],
+      "additionalProperties": false
+    },
+    "Signal": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "kind": {
+          "enum": [
+            "log",
+            "metric",
+            "health"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "level_or_unit": {
+          "type": "string"
+        },
+        "emitted_when": {
+          "type": "string"
+        },
+        "diagnostic_use": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "owner_ids",
+        "kind",
+        "name",
+        "level_or_unit",
+        "emitted_when",
+        "diagnostic_use"
+      ],
+      "additionalProperties": false
+    },
+    "ResearchBlocks": {
+      "type": "object",
+      "properties": {
+        "assumptions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Assumption"
+          }
+        },
+        "risks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Risk"
+          }
+        },
+        "open_questions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Question"
+          }
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Source"
+          }
+        },
+        "problem": {
+          "type": "string"
+        },
+        "goals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "outcome": {
+                "type": "string"
+              },
+              "success_measure": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "outcome",
+              "success_measure"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "non_goals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "item": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "item",
+              "reason"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "scenarios": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "user": {
+                "type": "string"
+              },
+              "trigger": {
+                "type": "string"
+              },
+              "goal": {
+                "type": "string"
+              },
+              "steps": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "unhappy_path": {
+                "type": "boolean"
+              },
+              "outcome": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "user",
+              "trigger",
+              "goal",
+              "steps",
+              "unhappy_path",
+              "outcome"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "requirements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Requirement"
+          }
+        },
+        "constraints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Constraint"
+          }
+        },
+        "integrations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "name": {
+                "type": "string"
+              },
+              "direction": {
+                "enum": [
+                  "inbound",
+                  "outbound",
+                  "bidirectional"
+                ]
+              },
+              "data_shape": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/Field"
+                }
+              },
+              "expected_volume": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "failure_behavior": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "direction",
+              "data_shape",
+              "expected_volume",
+              "failure_behavior"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "data_state": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "data": {
+                "type": "string"
+              },
+              "owner": {
+                "type": "string"
+              },
+              "location": {
+                "type": "string"
+              },
+              "retention": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "sensitivity": {
+                "type": "string"
+              },
+              "design_implications": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "id",
+              "data",
+              "owner",
+              "location",
+              "retention",
+              "sensitivity",
+              "design_implications"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Alternative"
+          }
+        },
+        "evaluation_criteria": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "criterion": {
+                "type": "string"
+              },
+              "weight_percent": {
+                "type": "number"
+              },
+              "rewards": {
+                "type": "string"
+              },
+              "penalizes": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "criterion",
+              "weight_percent",
+              "rewards",
+              "penalizes"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "assumptions",
+        "risks",
+        "open_questions",
+        "sources",
+        "problem",
+        "goals",
+        "non_goals",
+        "scenarios",
+        "requirements",
+        "constraints",
+        "integrations",
+        "data_state",
+        "options",
+        "evaluation_criteria"
+      ],
+      "additionalProperties": false
+    },
+    "HighLevelDesign": {
+      "type": "object",
+      "properties": {
+        "components": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Component"
+          }
+        },
+        "interactions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "from_component_id": {
+                "type": "string"
+              },
+              "to_component_id": {
+                "type": "string"
+              },
+              "purpose": {
+                "type": "string"
+              },
+              "data": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "from_component_id",
+              "to_component_id",
+              "purpose",
+              "data"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "entities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "name": {
+                "type": "string"
+              },
+              "fields": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/Field"
+                }
+              },
+              "relationships": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "ownership": {
+                "type": "string"
+              },
+              "storage": {
+                "type": "string"
+              },
+              "storage_rationale": {
+                "type": "string"
+              },
+              "normalization_rules": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "deletion_rules": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "fields",
+              "relationships",
+              "ownership",
+              "storage",
+              "storage_rationale",
+              "normalization_rules",
+              "deletion_rules"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "key_flows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "trigger": {
+                "type": "string"
+              },
+              "steps": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "state_changes": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "failure_branches": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "condition": {
+                      "type": "string"
+                    },
+                    "user_result": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "condition",
+                    "user_result"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "id",
+              "trigger",
+              "steps",
+              "state_changes",
+              "failure_branches"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "interfaces": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Contract"
+          }
+        },
+        "error_handling": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ErrorCase"
+          }
+        },
+        "security": {
+          "type": "object",
+          "properties": {
+            "threats": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "controls": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "sensitive_data": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "trust_boundaries": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "threats",
+            "controls",
+            "sensitive_data",
+            "trust_boundaries"
+          ],
+          "additionalProperties": false
+        },
+        "data_policies": {
+          "type": "object",
+          "properties": {
+            "ownership": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "retention": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "privacy": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "ownership",
+            "retention",
+            "privacy"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "components",
+        "interactions",
+        "entities",
+        "key_flows",
+        "interfaces",
+        "error_handling",
+        "security",
+        "data_policies"
+      ],
+      "additionalProperties": false
+    },
+    "HighLevelBlocks": {
+      "type": "object",
+      "properties": {
+        "assumptions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Assumption"
+          }
+        },
+        "risks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Risk"
+          }
+        },
+        "open_questions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Question"
+          }
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Source"
+          }
+        },
+        "decision": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Decision"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "alternatives": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Alternative"
+          }
+        },
+        "requirements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Requirement"
+          }
+        },
+        "constraints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Constraint"
+          }
+        },
+        "design": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HighLevelDesign"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "scope": {
+          "type": "object",
+          "properties": {
+            "included": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "deferred": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "never": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "included",
+            "deferred",
+            "never"
+          ],
+          "additionalProperties": false
+        },
+        "delivery_plan": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "outcome": {
+                "type": "string"
+              },
+              "requirement_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "acceptance": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "id",
+              "outcome",
+              "requirement_ids",
+              "acceptance"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "settled_decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Decision"
+          }
+        }
+      },
+      "required": [
+        "assumptions",
+        "risks",
+        "open_questions",
+        "sources",
+        "decision",
+        "alternatives",
+        "requirements",
+        "constraints",
+        "design",
+        "scope",
+        "delivery_plan",
+        "settled_decisions"
+      ],
+      "additionalProperties": false
+    },
+    "Technology": {
+      "type": "object",
+      "properties": {
+        "stack": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "applies_to": {
+                "$ref": "#/$defs/Applicability"
+              },
+              "layer": {
+                "type": "string"
+              },
+              "technology": {
+                "type": "string"
+              },
+              "version": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "rationale": {
+                "type": "string"
+              },
+              "runner_up": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "cost_note": {
+                "type": "string"
+              },
+              "basis": {
+                "$ref": "#/$defs/Basis"
+              }
+            },
+            "required": [
+              "id",
+              "applies_to",
+              "layer",
+              "technology",
+              "version",
+              "rationale",
+              "runner_up",
+              "cost_note",
+              "basis"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "tools": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "applies_to": {
+                "$ref": "#/$defs/Applicability"
+              },
+              "category": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "purpose": {
+                "type": "string"
+              },
+              "used_in": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "id",
+              "applies_to",
+              "category",
+              "name",
+              "purpose",
+              "used_in"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "libraries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "applies_to": {
+                "$ref": "#/$defs/Applicability"
+              },
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "language": {
+                "type": "string"
+              },
+              "ecosystem": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "version": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "capability": {
+                "type": "string"
+              },
+              "design_impact": {
+                "type": "array",
+                "items": {
+                  "enum": [
+                    "performance",
+                    "quality",
+                    "output",
+                    "system_design"
+                  ]
+                }
+              },
+              "selection_reason": {
+                "type": "string"
+              },
+              "used_in": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "licence": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "last_release": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "maintainer_health": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "concerns": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "basis": {
+                "$ref": "#/$defs/Basis"
+              }
+            },
+            "required": [
+              "applies_to",
+              "id",
+              "language",
+              "ecosystem",
+              "name",
+              "version",
+              "capability",
+              "design_impact",
+              "selection_reason",
+              "used_in",
+              "licence",
+              "last_release",
+              "maintainer_health",
+              "concerns",
+              "basis"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "services": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "applies_to": {
+                "$ref": "#/$defs/Applicability"
+              },
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "name": {
+                "type": "string"
+              },
+              "direction": {
+                "enum": [
+                  "consumed",
+                  "exposed"
+                ]
+              },
+              "protocol": {
+                "type": "string"
+              },
+              "authentication": {
+                "type": "string"
+              },
+              "rate_limits": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "cost_model": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "failure_behavior": {
+                "type": "string"
+              },
+              "offline_strategy": {
+                "type": "string"
+              },
+              "contract_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "applies_to",
+              "id",
+              "name",
+              "direction",
+              "protocol",
+              "authentication",
+              "rate_limits",
+              "cost_model",
+              "failure_behavior",
+              "offline_strategy",
+              "contract_ids"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "environment": {
+          "type": "object",
+          "properties": {
+            "prerequisites": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "text": {
+                    "type": "string"
+                  },
+                  "applies_to": {
+                    "$ref": "#/$defs/Applicability"
+                  }
+                },
+                "required": [
+                  "id",
+                  "text",
+                  "applies_to"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "installation": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "text": {
+                    "type": "string"
+                  },
+                  "applies_to": {
+                    "$ref": "#/$defs/Applicability"
+                  }
+                },
+                "required": [
+                  "id",
+                  "text",
+                  "applies_to"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "version_pinning": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "text": {
+                    "type": "string"
+                  },
+                  "applies_to": {
+                    "$ref": "#/$defs/Applicability"
+                  }
+                },
+                "required": [
+                  "id",
+                  "text",
+                  "applies_to"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "clean_machine_setup": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "text": {
+                    "type": "string"
+                  },
+                  "applies_to": {
+                    "$ref": "#/$defs/Applicability"
+                  }
+                },
+                "required": [
+                  "id",
+                  "text",
+                  "applies_to"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "prerequisites",
+            "installation",
+            "version_pinning",
+            "clean_machine_setup"
+          ],
+          "additionalProperties": false
+        },
+        "commands": {
+          "type": "object",
+          "properties": {
+            "build": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "test": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "lint": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "run": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "release": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "build",
+            "test",
+            "lint",
+            "run",
+            "release"
+          ],
+          "additionalProperties": false
+        },
+        "security": {
+          "type": "object",
+          "properties": {
+            "secrets": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "dependency_updates": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "vulnerability_scanning": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "data_handling": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "compliance": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "secrets",
+            "dependency_updates",
+            "vulnerability_scanning",
+            "data_handling",
+            "compliance"
+          ],
+          "additionalProperties": false
+        },
+        "observability": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Signal"
+          }
+        }
+      },
+      "required": [
+        "stack",
+        "tools",
+        "libraries",
+        "services",
+        "environment",
+        "commands",
+        "security",
+        "observability"
+      ],
+      "additionalProperties": false
+    },
+    "SystemContext": {
+      "type": "object",
+      "properties": {
+        "mission": {
+          "type": "object",
+          "properties": {
+            "purpose": {
+              "type": "string"
+            },
+            "must_never_do": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "purpose",
+            "must_never_do"
+          ],
+          "additionalProperties": false
+        },
+        "repository_layout": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "purpose": {
+                "type": "string"
+              },
+              "example_paths": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "applies_to": {
+                "$ref": "#/$defs/Applicability"
+              }
+            },
+            "required": [
+              "path",
+              "purpose",
+              "example_paths",
+              "applies_to"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "public_contract_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "conventions": {
+          "type": "object",
+          "properties": {
+            "naming": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "file_layout": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "errors": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "logging": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "comments": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "time": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "paths": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "configuration": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "naming",
+            "file_layout",
+            "errors",
+            "logging",
+            "comments",
+            "time",
+            "paths",
+            "configuration"
+          ],
+          "additionalProperties": false
+        },
+        "patterns": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "applies_to": {
+                "$ref": "#/$defs/Applicability"
+              },
+              "name": {
+                "type": "string"
+              },
+              "rule": {
+                "type": "string"
+              },
+              "example_language": {
+                "type": "string"
+              },
+              "example": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "applies_to",
+              "name",
+              "rule",
+              "example_language",
+              "example"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "anti_patterns": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "rule": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              },
+              "applies_to": {
+                "$ref": "#/$defs/Applicability"
+              }
+            },
+            "required": [
+              "rule",
+              "reason",
+              "applies_to"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "invariants": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "rule": {
+                "type": "string"
+              },
+              "enforcement": {
+                "type": "string"
+              },
+              "applies_to": {
+                "$ref": "#/$defs/Applicability"
+              }
+            },
+            "required": [
+              "id",
+              "rule",
+              "enforcement",
+              "applies_to"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "testing_standards": {
+          "type": "object",
+          "properties": {
+            "frameworks": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "levels": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "naming": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "acceptance_bar": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "frameworks",
+            "levels",
+            "naming",
+            "acceptance_bar"
+          ],
+          "additionalProperties": false
+        },
+        "glossary": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "term": {
+                "type": "string"
+              },
+              "definition": {
+                "type": "string"
+              },
+              "applies_to": {
+                "$ref": "#/$defs/Applicability"
+              }
+            },
+            "required": [
+              "term",
+              "definition",
+              "applies_to"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "budgets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "applies_to": {
+                "$ref": "#/$defs/Applicability"
+              },
+              "resource": {
+                "type": "string"
+              },
+              "target": {
+                "type": "string"
+              },
+              "measurement": {
+                "type": "string"
+              },
+              "basis": {
+                "$ref": "#/$defs/Basis"
+              }
+            },
+            "required": [
+              "applies_to",
+              "resource",
+              "target",
+              "measurement",
+              "basis"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "extension_recipe": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "mission",
+        "repository_layout",
+        "public_contract_ids",
+        "conventions",
+        "patterns",
+        "anti_patterns",
+        "invariants",
+        "testing_standards",
+        "glossary",
+        "budgets",
+        "extension_recipe"
+      ],
+      "additionalProperties": false
+    },
+    "ImplementationContext": {
+      "type": "object",
+      "properties": {
+        "technology": {
+          "$ref": "#/$defs/OperationalTechnology"
+        },
+        "system_context": {
+          "$ref": "#/$defs/SystemContext"
+        }
+      },
+      "required": [
+        "technology",
+        "system_context"
+      ],
+      "additionalProperties": false
+    },
+    "StackBlocks": {
+      "type": "object",
+      "properties": {
+        "assumptions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Assumption"
+          }
+        },
+        "risks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Risk"
+          }
+        },
+        "open_questions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Question"
+          }
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Source"
+          }
+        },
+        "components": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Component"
+          }
+        },
+        "contracts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Contract"
+          }
+        },
+        "technology": {
+          "$ref": "#/$defs/Technology"
+        },
+        "system_context": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SystemContext"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "costs": {
+          "type": "object",
+          "properties": {
+            "currency": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "build_areas": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "area": {
+                    "type": "string"
+                  },
+                  "effort": {
+                    "$ref": "#/$defs/Effort"
+                  }
+                },
+                "required": [
+                  "area",
+                  "effort"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "build_total": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Effort"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "contingency_percent": {
+              "const": 30
+            },
+            "contingency_person_days": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "total_with_contingency_person_days": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "monthly": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "usage": {
+                    "enum": [
+                      "low",
+                      "medium",
+                      "high"
+                    ]
+                  },
+                  "volume_assumptions": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "units": {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "unit": {
+                          "type": "string"
+                        },
+                        "unit_price": {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "arithmetic": {
+                          "type": "string"
+                        },
+                        "amount": {
+                          "anyOf": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "basis": {
+                          "$ref": "#/$defs/Basis"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "units",
+                        "unit",
+                        "unit_price",
+                        "arithmetic",
+                        "amount",
+                        "basis"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "total": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "usage",
+                  "volume_assumptions",
+                  "items",
+                  "total"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "scaling_triggers": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "metric": {
+                    "type": "string"
+                  },
+                  "threshold": {
+                    "type": "string"
+                  },
+                  "action": {
+                    "type": "string"
+                  },
+                  "next_step_cost": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "metric",
+                  "threshold",
+                  "action",
+                  "next_step_cost"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "ten_times_load": {
+              "type": "object",
+              "properties": {
+                "bottlenecks": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "changes_required": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "bottlenecks",
+                "changes_required"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "currency",
+            "build_areas",
+            "build_total",
+            "contingency_percent",
+            "contingency_person_days",
+            "total_with_contingency_person_days",
+            "monthly",
+            "scaling_triggers",
+            "ten_times_load"
+          ],
+          "additionalProperties": false
+        },
+        "rejected_technologies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Alternative"
+          }
+        }
+      },
+      "required": [
+        "assumptions",
+        "risks",
+        "open_questions",
+        "sources",
+        "components",
+        "contracts",
+        "technology",
+        "system_context",
+        "costs",
+        "rejected_technologies"
+      ],
+      "additionalProperties": false
+    },
+    "LowLevelBlocks": {
+      "type": "object",
+      "properties": {
+        "assumptions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Assumption"
+          }
+        },
+        "risks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Risk"
+          }
+        },
+        "open_questions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Question"
+          }
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Source"
+          }
+        },
+        "requirements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EffectiveRequirement"
+          }
+        },
+        "constraints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Constraint"
+          }
+        },
+        "decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OperationalDecision"
+          }
+        },
+        "scope": {
+          "type": "object",
+          "properties": {
+            "included": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "deferred": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "never": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "included",
+            "deferred",
+            "never"
+          ],
+          "additionalProperties": false
+        },
+        "implementation_context": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ImplementationContext"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "modules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "name": {
+                "type": "string"
+              },
+              "responsibility": {
+                "type": "string"
+              },
+              "why_separate": {
+                "type": "string"
+              },
+              "depends_on": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "public_contract_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "component_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "requirement_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "consumed_contract_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "produced_contract_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "files": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/FileChange"
+                }
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "responsibility",
+              "why_separate",
+              "depends_on",
+              "public_contract_ids",
+              "component_ids",
+              "requirement_ids",
+              "consumed_contract_ids",
+              "produced_contract_ids",
+              "files"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "contracts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Contract"
+          }
+        },
+        "algorithms": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Algorithm"
+          }
+        },
+        "error_cases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ErrorCase"
+          }
+        },
+        "concurrency": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ConcurrencyRule"
+          }
+        },
+        "state_machines": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StateMachine"
+          }
+        },
+        "surfaces": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Surface"
+          }
+        },
+        "observability": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Signal"
+          }
+        },
+        "test_plan": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "module_id": {
+                "type": "string"
+              },
+              "tests": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/PlannedTest"
+                }
+              }
+            },
+            "required": [
+              "module_id",
+              "tests"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "acceptance": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AcceptanceCriterion"
+          }
+        },
+        "requirement_coverage": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "requirement_id": {
+                "type": "string"
+              },
+              "module_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "disposition": {
+                "enum": [
+                  "implemented",
+                  "excluded"
+                ]
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "requirement_id",
+              "module_ids",
+              "disposition",
+              "reason"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "build_batches": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "deliberately_excluded": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "requirement_id": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "requirement_id",
+              "reason"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "design_changes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "affected_source": {
+                "type": "string"
+              },
+              "previous_decision": {
+                "type": "string"
+              },
+              "replacement": {
+                "type": "string"
+              },
+              "rationale": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "affected_source",
+              "previous_decision",
+              "replacement",
+              "rationale"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "assumptions",
+        "risks",
+        "open_questions",
+        "sources",
+        "requirements",
+        "constraints",
+        "decisions",
+        "scope",
+        "implementation_context",
+        "modules",
+        "contracts",
+        "algorithms",
+        "error_cases",
+        "concurrency",
+        "state_machines",
+        "surfaces",
+        "observability",
+        "test_plan",
+        "acceptance",
+        "requirement_coverage",
+        "build_batches",
+        "deliberately_excluded",
+        "design_changes"
+      ],
+      "additionalProperties": false
+    },
+    "PackageImplementation": {
+      "type": "object",
+      "properties": {
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "contract_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "algorithms": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Algorithm"
+          }
+        },
+        "error_cases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ErrorCase"
+          }
+        },
+        "concurrency": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ConcurrencyRule"
+          }
+        },
+        "state_machines": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StateMachine"
+          }
+        },
+        "surfaces": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Surface"
+          }
+        },
+        "observability": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Signal"
+          }
+        },
+        "decision_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "notes",
+        "contract_ids",
+        "algorithms",
+        "error_cases",
+        "concurrency",
+        "state_machines",
+        "surfaces",
+        "observability",
+        "decision_ids"
+      ],
+      "additionalProperties": false
+    },
+    "WorkPackage": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string"
+        },
+        "goal": {
+          "type": "string"
+        },
+        "why_now": {
+          "type": "string"
+        },
+        "languages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "module_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "requirement_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "depends_on": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "prerequisite_reasons": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "package_id": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "package_id",
+              "reason"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "scope_in": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "scope_out": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FileChange"
+          }
+        },
+        "consumed_contract_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "produced_contract_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "implementation": {
+          "$ref": "#/$defs/PackageImplementation"
+        },
+        "tests": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PlannedTest"
+          }
+        },
+        "acceptance": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AcceptanceCriterion"
+          }
+        },
+        "command_keys": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "build",
+              "test",
+              "lint",
+              "run",
+              "release"
+            ]
+          }
+        },
+        "source_acceptance_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "effort": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Effort"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "risk": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Risk"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "goal",
+        "why_now",
+        "languages",
+        "module_ids",
+        "requirement_ids",
+        "depends_on",
+        "prerequisite_reasons",
+        "scope_in",
+        "scope_out",
+        "files",
+        "consumed_contract_ids",
+        "produced_contract_ids",
+        "implementation",
+        "tests",
+        "acceptance",
+        "command_keys",
+        "source_acceptance_ids",
+        "effort",
+        "risk"
+      ],
+      "additionalProperties": false
+    },
+    "WorkPackageBlocks": {
+      "type": "object",
+      "properties": {
+        "assumptions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Assumption"
+          }
+        },
+        "risks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Risk"
+          }
+        },
+        "open_questions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Question"
+          }
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Source"
+          }
+        },
+        "packages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/WorkPackage"
+          }
+        },
+        "build_batches": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "integration_points": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "package_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "contract_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "verification": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "package_ids",
+              "contract_ids",
+              "verification"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "deliberately_not_created": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "reason"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "assumptions",
+        "risks",
+        "open_questions",
+        "sources",
+        "packages",
+        "build_batches",
+        "integration_points",
+        "deliberately_not_created"
+      ],
+      "additionalProperties": false
+    },
+    "CodingPromptBlocks": {
+      "type": "object",
+      "properties": {
+        "assumptions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Assumption"
+          }
+        },
+        "risks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Risk"
+          }
+        },
+        "open_questions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Question"
+          }
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Source"
+          }
+        },
+        "target": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "title": {
+              "type": "string"
+            },
+            "goal": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "title",
+            "goal"
+          ],
+          "additionalProperties": false
+        },
+        "scope": {
+          "type": "object",
+          "properties": {
+            "included": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "excluded": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "included",
+            "excluded"
+          ],
+          "additionalProperties": false
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FileChange"
+          }
+        },
+        "interfaces_consumed": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Contract"
+          }
+        },
+        "interfaces_produced": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Contract"
+          }
+        },
+        "implementation_instructions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "order": {
+                "type": "number"
+              },
+              "files": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "instruction": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "order",
+              "files",
+              "instruction"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "planned_checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "enum": [
+                  "build",
+                  "test",
+                  "lint",
+                  "manual"
+                ]
+              },
+              "command": {
+                "type": "string"
+              },
+              "expected_result": {
+                "type": "string"
+              },
+              "source_test_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "kind",
+              "command",
+              "expected_result",
+              "source_test_ids"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "acceptance": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AcceptanceCriterion"
+          }
+        },
+        "blockers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "coding_prompt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "assumptions",
+        "risks",
+        "open_questions",
+        "sources",
+        "target",
+        "scope",
+        "files",
+        "interfaces_consumed",
+        "interfaces_produced",
+        "implementation_instructions",
+        "planned_checks",
+        "acceptance",
+        "blockers",
+        "coding_prompt"
+      ],
+      "additionalProperties": false
+    },
+    "EffectiveRequirement": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "functional",
+            "non_functional"
+          ]
+        },
+        "area": {
+          "type": "string"
+        },
+        "statement": {
+          "type": "string"
+        },
+        "measurable_target": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "basis": {
+          "$ref": "#/$defs/Basis"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "area",
+        "statement",
+        "measurable_target",
+        "basis"
+      ],
+      "additionalProperties": false
+    },
+    "OperationalTechnology": {
+      "type": "object",
+      "properties": {
+        "stack": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "layer": {
+                "type": "string"
+              },
+              "technology": {
+                "type": "string"
+              },
+              "version": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "basis": {
+                "$ref": "#/$defs/Basis"
+              },
+              "applies_to": {
+                "$ref": "#/$defs/Applicability"
+              }
+            },
+            "required": [
+              "id",
+              "layer",
+              "technology",
+              "version",
+              "basis",
+              "applies_to"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "tools": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "category": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "purpose": {
+                "type": "string"
+              },
+              "used_in": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "applies_to": {
+                "$ref": "#/$defs/Applicability"
+              }
+            },
+            "required": [
+              "id",
+              "category",
+              "name",
+              "purpose",
+              "used_in",
+              "applies_to"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "libraries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "language": {
+                "type": "string"
+              },
+              "ecosystem": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "version": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "capability": {
+                "type": "string"
+              },
+              "used_in": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "licence": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "concerns": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "basis": {
+                "$ref": "#/$defs/Basis"
+              },
+              "applies_to": {
+                "$ref": "#/$defs/Applicability"
+              }
+            },
+            "required": [
+              "id",
+              "language",
+              "ecosystem",
+              "name",
+              "version",
+              "capability",
+              "used_in",
+              "licence",
+              "concerns",
+              "basis",
+              "applies_to"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "services": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "name": {
+                "type": "string"
+              },
+              "direction": {
+                "enum": [
+                  "consumed",
+                  "exposed"
+                ]
+              },
+              "protocol": {
+                "type": "string"
+              },
+              "authentication": {
+                "type": "string"
+              },
+              "rate_limits": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "failure_behavior": {
+                "type": "string"
+              },
+              "offline_strategy": {
+                "type": "string"
+              },
+              "contract_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "applies_to": {
+                "$ref": "#/$defs/Applicability"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "direction",
+              "protocol",
+              "authentication",
+              "rate_limits",
+              "failure_behavior",
+              "offline_strategy",
+              "contract_ids",
+              "applies_to"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "environment": {
+          "type": "object",
+          "properties": {
+            "prerequisites": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "text": {
+                    "type": "string"
+                  },
+                  "applies_to": {
+                    "$ref": "#/$defs/Applicability"
+                  }
+                },
+                "required": [
+                  "id",
+                  "text",
+                  "applies_to"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "installation": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "text": {
+                    "type": "string"
+                  },
+                  "applies_to": {
+                    "$ref": "#/$defs/Applicability"
+                  }
+                },
+                "required": [
+                  "id",
+                  "text",
+                  "applies_to"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "version_pinning": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "text": {
+                    "type": "string"
+                  },
+                  "applies_to": {
+                    "$ref": "#/$defs/Applicability"
+                  }
+                },
+                "required": [
+                  "id",
+                  "text",
+                  "applies_to"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "clean_machine_setup": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "text": {
+                    "type": "string"
+                  },
+                  "applies_to": {
+                    "$ref": "#/$defs/Applicability"
+                  }
+                },
+                "required": [
+                  "id",
+                  "text",
+                  "applies_to"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "prerequisites",
+            "installation",
+            "version_pinning",
+            "clean_machine_setup"
+          ],
+          "additionalProperties": false
+        },
+        "commands": {
+          "type": "object",
+          "properties": {
+            "build": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "test": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "lint": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "run": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "release": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "build",
+            "test",
+            "lint",
+            "run",
+            "release"
+          ],
+          "additionalProperties": false
+        },
+        "security": {
+          "type": "object",
+          "properties": {
+            "secrets": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "dependency_updates": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "vulnerability_scanning": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "data_handling": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "compliance": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "secrets",
+            "dependency_updates",
+            "vulnerability_scanning",
+            "data_handling",
+            "compliance"
+          ],
+          "additionalProperties": false
+        },
+        "observability": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Signal"
+          }
+        }
+      },
+      "required": [
+        "stack",
+        "tools",
+        "libraries",
+        "services",
+        "environment",
+        "commands",
+        "security",
+        "observability"
+      ],
+      "additionalProperties": false
+    }
+  }
+}
