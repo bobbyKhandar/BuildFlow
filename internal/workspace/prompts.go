@@ -3,6 +3,7 @@ package workspace
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -31,13 +32,18 @@ type Template struct {
 
 // AssemblySource records one document that fed the assembled prompt.
 type AssemblySource struct {
-	Token  string `json:"token"`
-	Label  string `json:"label"`
-	Path   string `json:"path"`
-	Exists bool   `json:"exists"`
-	Chars  int    `json:"chars"`
-	Hash   string `json:"hash,omitempty"`
-	Active bool   `json:"active"`
+	Token             string                `json:"token"`
+	Label             string                `json:"label"`
+	Path              string                `json:"path"`
+	Exists            bool                  `json:"exists"`
+	Chars             int                   `json:"chars"`
+	Hash              string                `json:"hash,omitempty"`
+	Active            bool                  `json:"active"`
+	Mode              string                `json:"mode,omitempty"`
+	ProjectionVersion string                `json:"projectionVersion,omitempty"`
+	SelectedPointers  []string              `json:"selectedPointers,omitempty"`
+	Selections        []ProjectionSelection `json:"selections,omitempty"`
+	RecordHashes      map[string]string     `json:"recordHashes,omitempty"`
 }
 
 // AssemblyWarning explains a missing or suspicious input.
@@ -70,6 +76,7 @@ type AssembledPrompt struct {
 	SnapshotDiffers bool              `json:"snapshotDiffers"`
 	AssembledAt     time.Time         `json:"assembledAt"`
 	CharCount       int               `json:"charCount"`
+	Projection      *PromptProjection `json:"projection,omitempty"`
 }
 
 // frontMatterRe matches a leading YAML front matter block.
@@ -394,6 +401,12 @@ func (s *Service) AssemblePrompt(project, stage, pkg string) (AssembledPrompt, e
 	if err != nil {
 		return AssembledPrompt{}, err
 	}
+	usesHandoff := false
+	for _, match := range tokenRe.FindAllStringSubmatch(tmpl.Body, -1) {
+		if match[1] == "handoff" {
+			usesHandoff = true
+		}
+	}
 
 	values := map[string]string{
 		"project_name":        proj.Name,
@@ -499,14 +512,49 @@ func (s *Service) AssemblePrompt(project, stage, pkg string) (AssembledPrompt, e
 	}
 
 	for _, src := range sourcesForStage(stage, pkg) {
+		if usesHandoff && src.token != "input" && src.token != "package_input" {
+			continue
+		}
 		values[src.token] = load(src)
+	}
+	var projection *PromptProjection
+	if usesHandoff {
+		selected, err := s.ProjectPrompt(project, ProjectionTarget{Stage: stage, PackageID: pkg})
+		if err != nil {
+			return AssembledPrompt{}, err
+		}
+		projection = &selected
+		sources = append(sources, selected.Sources...)
+		for _, diagnostic := range selected.Diagnostics {
+			warnings = append(warnings, AssemblyWarning{Token: "handoff", Label: "Projection preflight", Path: diagnostic.SourcePath, Reason: diagnostic.Message, Severity: diagnostic.Severity, Required: diagnostic.Severity == "error"})
+		}
+		// This is the data boundary for the projection engine. Labelled compact
+		// rendering and legacy fallback are deliberately separate later work.
+		// Provenance belongs in assembly metadata, not beside every prompt value.
+		var data any = selected.Data
+		if selected.State != "ready" {
+			blockers := []string{}
+			for _, diagnostic := range selected.Diagnostics {
+				if diagnostic.Severity == "error" {
+					blockers = append(blockers, diagnostic.Message)
+				}
+			}
+			data = map[string]any{"state": "blocked", "blockers": blockers}
+		}
+		payload, err := json.Marshal(data)
+		if err != nil {
+			return AssembledPrompt{}, err
+		}
+		values["handoff"] = string(payload)
 	}
 
 	// {{previous_output}} is the previous step's output, placed at the bottom of
 	// the assembled prompt so the whole thing can be copied to an LLM chatbot in
 	// one go. For Step 5 the "previous" output is the package itself, which is
 	// what the package's Step 5 input was seeded from.
-	if stage == "step-05" {
+	if usesHandoff {
+		values["previous_output"] = ""
+	} else if stage == "step-05" {
 		// For a package the "previous output" is the package itself. Strip the
 		// front matter: it is metadata, not something an LLM needs to read.
 		values["previous_output"] = StripFrontMatter(values["package_content"])
@@ -523,6 +571,9 @@ func (s *Service) AssemblePrompt(project, stage, pkg string) (AssembledPrompt, e
 	// Extra saved outputs are available to every stage so a template can pull
 	// in a document the default wiring does not need.
 	for _, id := range []string{"step-01", "step-02", "step-02-5", "step-03", "step-04"} {
+		if usesHandoff {
+			break
+		}
 		token := "output_" + strings.ReplaceAll(id, "-", "_")
 		if _, taken := values[token]; taken {
 			continue
@@ -582,6 +633,7 @@ func (s *Service) AssemblePrompt(project, stage, pkg string) (AssembledPrompt, e
 		SnapshotPath:  filepath.ToSlash(rel),
 		AssembledAt:   time.Now().UTC(),
 		CharCount:     len([]rune(assembled)),
+		Projection:    projection,
 	}
 	if snap, err := s.ReadDoc(kind, stage, pkg, project); err == nil && snap.Exists {
 		out.HasSnapshot = true
