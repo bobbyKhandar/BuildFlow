@@ -45,6 +45,7 @@ type PromptProjection struct {
 	Data        map[string]any         `json:"data"`
 	Sources     []AssemblySource       `json:"sources"`
 	Diagnostics []ProjectionDiagnostic `json:"diagnostics"`
+	Legacy      []LegacyPromptSource   `json:"legacy,omitempty"`
 }
 
 // ProjectPrompt reads only the registered sources. In particular Stage 5 starts
@@ -59,6 +60,7 @@ type projectionDocument struct {
 	doc                  Doc
 	parsed               structured.Result
 	blocks               map[string]any
+	renderedData         map[string]any
 	index                int
 	sources, assumptions map[string]bool
 }
@@ -141,6 +143,11 @@ func projectPrompt(target ProjectionTarget, load func(string, string, string) (D
 			return PromptProjection{}, err
 		}
 	}
+	if target.Stage == "step-04" || target.Stage == "step-05" {
+		if err := b.recoverLegacyContext(); err != nil {
+			return PromptProjection{}, err
+		}
+	}
 	if b.hasErrors() {
 		return b.finish(), nil
 	}
@@ -188,6 +195,18 @@ func (b *projectionBuilder) finish() PromptProjection {
 		b.out.State, b.out.Data = "blocked", nil
 	}
 	for i := range b.out.Sources {
+		for _, d := range b.cache {
+			if d.index == i && len(d.renderedData) > 0 {
+				rendered, _ := compactJSON(d.renderedData)
+				b.out.Sources[i].Chars = len([]rune(rendered))
+			}
+		}
+		b.out.Sources[i].EstimatedTokens = estimatedTokens(b.out.Sources[i].Chars)
+		for _, diagnostic := range b.out.Diagnostics {
+			if diagnostic.SourcePath == b.out.Sources[i].Path {
+				b.out.Sources[i].Diagnostics = append(b.out.Sources[i].Diagnostics, diagnostic)
+			}
+		}
 		sort.Strings(b.out.Sources[i].SelectedPointers)
 		b.out.Sources[i].SelectedPointers = uniqueStrings(b.out.Sources[i].SelectedPointers)
 	}
@@ -223,9 +242,11 @@ func (b *projectionBuilder) read(kind, stage, scope, pkg string, required bool, 
 	if d.parsed.Status != structured.Valid {
 		if required {
 			for _, diagnostic := range d.parsed.Diagnostics {
+				diagnostic.Severity = b.fallbackSeverity(diagnostic)
 				b.out.Diagnostics = append(b.out.Diagnostics, ProjectionDiagnostic{doc.Path, diagnostic})
 			}
-			b.diagnostic(d, "", "invalid_source", "validated "+stage+" data is unavailable ("+string(d.parsed.Status)+"); structured projection cannot select fields", "error")
+			b.diagnostic(d, "", "invalid_source", "validated "+stage+" data is unavailable ("+string(d.parsed.Status)+"); structured projection cannot select fields", b.fallbackSeverity(structured.Diagnostic{}))
+			b.legacyFallback(d, b.sourceRows(stage))
 		}
 		return d, nil
 	}
@@ -629,6 +650,10 @@ func (b *projectionBuilder) selectRow(row ProjectionField) {
 		}
 		collectProjectionEvidence(selected, d)
 	}
+	if d.renderedData == nil {
+		d.renderedData = map[string]any{}
+	}
+	d.renderedData[row.Output] = selected
 	b.out.Sources[d.index].Active = true
 	b.out.Sources[d.index].Selections = append(b.out.Sources[d.index].Selections, selection)
 	b.out.Sources[d.index].SelectedPointers = append(b.out.Sources[d.index].SelectedPointers, pointers...)

@@ -3,7 +3,6 @@ package workspace
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -32,18 +31,21 @@ type Template struct {
 
 // AssemblySource records one document that fed the assembled prompt.
 type AssemblySource struct {
-	Token             string                `json:"token"`
-	Label             string                `json:"label"`
-	Path              string                `json:"path"`
-	Exists            bool                  `json:"exists"`
-	Chars             int                   `json:"chars"`
-	Hash              string                `json:"hash,omitempty"`
-	Active            bool                  `json:"active"`
-	Mode              string                `json:"mode,omitempty"`
-	ProjectionVersion string                `json:"projectionVersion,omitempty"`
-	SelectedPointers  []string              `json:"selectedPointers,omitempty"`
-	Selections        []ProjectionSelection `json:"selections,omitempty"`
-	RecordHashes      map[string]string     `json:"recordHashes,omitempty"`
+	Token              string                 `json:"token"`
+	Label              string                 `json:"label"`
+	Path               string                 `json:"path"`
+	Exists             bool                   `json:"exists"`
+	Chars              int                    `json:"chars"`
+	Hash               string                 `json:"hash,omitempty"`
+	Active             bool                   `json:"active"`
+	Mode               string                 `json:"mode,omitempty"`
+	ProjectionVersion  string                 `json:"projectionVersion,omitempty"`
+	SelectedPointers   []string               `json:"selectedPointers,omitempty"`
+	Selections         []ProjectionSelection  `json:"selections,omitempty"`
+	RecordHashes       map[string]string      `json:"recordHashes,omitempty"`
+	EstimatedTokens    int                    `json:"estimatedTokens"`
+	FallbackBoundaries []FallbackBoundary     `json:"fallbackBoundaries,omitempty"`
+	Diagnostics        []ProjectionDiagnostic `json:"diagnostics,omitempty"`
 }
 
 // AssemblyWarning explains a missing or suspicious input.
@@ -77,6 +79,8 @@ type AssembledPrompt struct {
 	AssembledAt     time.Time         `json:"assembledAt"`
 	CharCount       int               `json:"charCount"`
 	Projection      *PromptProjection `json:"projection,omitempty"`
+	EstimatedTokens int               `json:"estimatedTokens"`
+	Size            PromptSize        `json:"size"`
 }
 
 // frontMatterRe matches a leading YAML front matter block.
@@ -528,24 +532,11 @@ func (s *Service) AssemblePrompt(project, stage, pkg string) (AssembledPrompt, e
 		for _, diagnostic := range selected.Diagnostics {
 			warnings = append(warnings, AssemblyWarning{Token: "handoff", Label: "Projection preflight", Path: diagnostic.SourcePath, Reason: diagnostic.Message, Severity: diagnostic.Severity, Required: diagnostic.Severity == "error"})
 		}
-		// This is the data boundary for the projection engine. Labelled compact
-		// rendering and legacy fallback are deliberately separate later work.
-		// Provenance belongs in assembly metadata, not beside every prompt value.
-		var data any = selected.Data
-		if selected.State != "ready" {
-			blockers := []string{}
-			for _, diagnostic := range selected.Diagnostics {
-				if diagnostic.Severity == "error" {
-					blockers = append(blockers, diagnostic.Message)
-				}
-			}
-			data = map[string]any{"state": "blocked", "blockers": blockers}
-		}
-		payload, err := json.Marshal(data)
+		payload, err := RenderPromptProjection(selected)
 		if err != nil {
 			return AssembledPrompt{}, err
 		}
-		values["handoff"] = string(payload)
+		values["handoff"] = payload
 	}
 
 	// {{previous_output}} is the previous step's output, placed at the bottom of
@@ -634,6 +625,11 @@ func (s *Service) AssemblePrompt(project, stage, pkg string) (AssembledPrompt, e
 		AssembledAt:   time.Now().UTC(),
 		CharCount:     len([]rune(assembled)),
 		Projection:    projection,
+	}
+	out.Size = assemblySize(assembled, stage, body, values, projection)
+	out.EstimatedTokens = out.Size.EstimatedTokens
+	if warning := sizeWarning(out.Size); warning != nil {
+		out.Warnings = append(out.Warnings, *warning)
 	}
 	if snap, err := s.ReadDoc(kind, stage, pkg, project); err == nil && snap.Exists {
 		out.HasSnapshot = true

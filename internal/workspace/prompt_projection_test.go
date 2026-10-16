@@ -686,7 +686,7 @@ func TestAssemblePromptHandoffUsesProjectionAndReportsBlockers(t *testing.T) {
 	}
 	requireProjectionReady(t, *out.Projection)
 	var data map[string]any
-	if err := json.Unmarshal([]byte(out.Content), &data); err != nil {
+	if err := json.Unmarshal([]byte(renderedProjectionJSON(t, out.Content)), &data); err != nil {
 		t.Fatal(err)
 	}
 	declaration := projectionObject(projectionArray(data["contracts"])[0])["declaration"]
