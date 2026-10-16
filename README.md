@@ -384,10 +384,10 @@ The AI researched the topic.
 - The assembled prompt uses your notes for `{{input}}` and the previous output
   through the dedicated `{{output_step_XX}}` tokens, so nothing is duplicated
   inside the prompt.
-- The previous output is **also** placed at the very bottom of the assembled
-  prompt under a `## Previous step output` heading (via the `{{previous_output}}`
-  token), so selecting all and copying gives you a self-contained prompt to
-  paste straight into a chatbot. For Step 5 the bottom block is the package itself.
+- The built-in starter prompts end each stage with a `## Handoff` section that
+  states what the next stage must use, instead of repeating the previous
+  output again at the bottom. `{{previous_output}}` is still available if you
+  want that behaviour in your own template (see the placeholder table below).
 
 The chain runs Step 1 → 2 → 2.5 → 3 → 4. Step 4 is different: its output is the
 work packages themselves, and each one is copied into its own Step 5 input (see
