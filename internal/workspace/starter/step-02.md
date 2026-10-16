@@ -6,9 +6,14 @@ description: Turns the research brief plus my discussion into one decision and a
 assembles: [input, output_step_01]
 ---
 
-You are a staff engineer making and defending an architecture decision. I need a
-**decision** and a **high-level design** that a team could build. I will not challenge
-you on this until Step 3, so commit to a position.
+You are an engineer selecting one approach and describing its high-level design.
+Use the research brief and my notes to make a justified decision within the
+established goals and constraints.
+
+Choose the system approach, responsibilities, boundaries, and delivery increments.
+Leave concrete stack and cost choices to Stage 2.5, implementation details to
+Stage 3, and work-package boundaries to Stage 4. Preserve technologies already
+explicitly required by the supplied materials.
 
 ## Project
 
@@ -19,74 +24,90 @@ you on this until Step 3, so commit to a position.
 
 {{output_step_01}}
 
-## My discussion notes (verbatim, they override the brief)
+## My discussion notes (verbatim)
 
 {{input}}
 
+## Missing prerequisites
+
+{{missing_sources}}
+
+## Working rules
+
+- Preserve requirement IDs, evidence labels, and uncertainty from the brief.
+  Distinguish supplied claims, externally verified facts, inferences, assumptions,
+  and decisions made in this stage. Cite the relevant source sections.
+- Apply explicit user corrections transparently: record what changed and why.
+  Notes do not silently override conflicting requirements or constraints.
+  Identify material conflicts, their sources, and the decision they block.
+- Ask only questions that could materially change scope, architecture, safety,
+  cost, or acceptance. Otherwise proceed with labeled assumptions and list
+  what must be confirmed.
+- Choose one approach when the evidence permits. If a material blocker prevents
+  choosing responsibly, mark the decision unresolved and complete only the
+  unaffected sections. Do not fabricate certainty.
+- Do not invent sources, repository facts, costs, prior decisions, or test results.
+
 ## What I need from you
 
-### 1. The decision
-State the decision in one sentence, in plain language. Then:
+Use these headings exactly and in order. Keep the design concise, normally
+within 2000 words plus useful tables or diagrams.
 
-- **Chosen approach**, in two or three sentences.
-- **Why this one**: the three strongest reasons, each tied to a specific finding or
-  constraint above.
-- **What I give up**, stated honestly.
-- **What would change this decision**: the concrete finding that would flip it.
+### 1. The decision
+State the selected approach, reasons tied to goal and requirement IDs, the
+main tradeoffs, and evidence that would justify revisiting it.
+Give new decisions stable IDs such as D-1. Distinguish decisions from assumptions.
 
 ### 2. Alternatives rejected
-For each serious alternative, one short paragraph: why it was tempting, the specific
-reason it lost, and the condition under which it would become the better choice. This
-section is what I will read in six months, so be precise.
+For each serious alternative, explain why it lost against the stated criteria
+and the condition under which it would become preferable.
 
 ### 3. System overview
-Components, their responsibilities, and the direction of every interaction. Use a text
-diagram, and keep the boundaries honest: name exactly what each component owns.
+Describe the main components, their responsibilities, ownership boundaries,
+and interactions. Include a small text diagram where it clarifies the design.
 
 ### 4. Data model
-The entities, their fields with types, the relationships, and the ownership rules. Give
-the storage medium and the reasoning. Call out anything that must not be normalised or
-anything that must never be deleted.
+Describe the principal entities, relationships, ownership, lifecycle, and
+storage requirements. Include fields only where they define an important
+boundary. Leave detailed schemas and migrations to Stage 3.
 
 ### 5. Key flows
-The three to five flows that matter most, each as an ordered list: trigger, steps,
-state changes, and every failure branch with its user-visible result.
+Describe the main user or system flows: trigger, participating components,
+state changes, result, and significant failure paths.
 
 ### 6. Interfaces
-Every interface the system exposes or consumes, with the shape of the data crossing it.
-Prefer concrete field lists over prose. Note the version-stability expectation of each.
+Describe exposed and consumed interfaces, their purpose, data crossing each
+boundary, trust assumptions, and compatibility expectations. Leave exhaustive
+signatures and field-level validation to Stage 3.
 
 ### 7. Error handling and edge cases
-The error taxonomy: which layer detects what, what the user sees, what is logged, what
-is retried, and what is fatal. Cover the partial-failure cases explicitly.
+Define responsibility for detecting and handling major failures, partial
+completion, retries, and user feedback. Detail only what affects the architecture.
 
 ### 8. Security and privacy
-Threats you considered, the controls chosen, the data that is sensitive, and what
-"trust the local machine" or "trust the user" means for this design.
+Identify sensitive data, trust boundaries, relevant threats, and chosen controls.
+Tie controls to requirements or identified risks. Do not invent compliance duties.
 
 ### 9. Scope boundaries
-In scope for this version, explicitly deferred, and never. The deferred list should be
-specific enough to stop scope creep in review.
+List included behavior, explicit exclusions, and deferred work. Distinguish
+user-approved exclusions from proposals requiring confirmation.
 
 ### 10. Delivery plan
-The smallest slice that is genuinely useful, then the increments after it, each with its
-own acceptance criteria.
+Define the smallest useful increment and subsequent increments. Give each
+measurable acceptance criteria linked to goals or requirement IDs.
+These are delivery increments, not final work packages.
 
 ### 11. Open risks carried forward
-Only the risks that survive the decision, with the check that will confirm or kill each
-one early. These become the input to Step 2.5.
+List unresolved risks, assumptions, and contradictions, with the decision
+affected and the next validation action. Identify which block Stage 2.5.
 
 ### 12. Decisions a reader should not re-litigate
-List the settled questions with their one-line rationale, so future work does not reopen
-them.
+Record settled decisions with IDs, rationale, source requirements, and any
+conditions for reconsideration. Do not put unresolved assumptions in this list.
+Record explicit user-directed changes to earlier material.
 
-## Rules
+## Handoff
 
-- Pick one option. No hedging menus.
-- Where the brief is silent, state the assumption you made and keep a list of them.
-- Use tables where they compress better than sentences.
-- Under roughly 2000 words plus the diagram and tables.
-
-## Previous step output
-
-{{previous_output}}
+List the selected approach, scope, requirement and decision IDs, interfaces,
+delivery increments, and unresolved matters Stage 2.5 must use. Identify the
+technology and operating choices still delegated to Stage 2.5.

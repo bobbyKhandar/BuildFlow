@@ -673,22 +673,21 @@
     }
     $('templateHint').textContent = hint;
 
-    $('panePackage').hidden = state.stage !== 'step-05' || !state.pkg;
+    $('panePackage').hidden = !state.projectId || state.stage !== 'step-05' || !state.pkg;
     if (!$('panePackage').hidden) {
       $('packageDocPath').textContent = targets && targets.packagedoc ? relPath(targets.packagedoc) : '';
     }
     // Step 4 replaces the single input/output panes with per-package slots.
     const isStep4 = state.stage === 'step-04';
-    $('paneInput').hidden = isStep4;
-    $('paneOutput').hidden = isStep4;
-    $('paneStep4').hidden = !isStep4;
+    $('paneInput').hidden = !state.projectId || isStep4;
+    $('paneOutput').hidden = !state.projectId || isStep4;
+    $('paneStep4').hidden = !state.projectId || !isStep4;
     $('btnDetectPackages').hidden = isStep4;
   }
 
   // ------------------------------------------------------------------ load
 
   async function selectStage(stageId, keepPackage) {
-    if (!state.projectId) return;
     if (stageId === 'step-05' && !keepPackage) {
       const pkgs = (state.project && state.project.packages) || [];
       state.pkg = pkgs.length ? pkgs[0].id : '';
@@ -717,6 +716,26 @@
     renderStages();
     renderPackages();
     renderStageHeader();
+
+    if (!state.projectId) {
+      // Global prompt templates are useful before a project exists. Keep the
+      // project-specific documents empty and load only the selected template.
+      $('inputText').value = '';
+      $('outputText').value = '';
+      $('packageDocText').value = '';
+      $('promptText').value = '';
+      $('promptEdited').checked = false;
+      state.promptEdited = false;
+      state.step4Slots = [];
+      $('step4Slots').textContent = '';
+      flag('inputFlag', '', 'create a project to add input');
+      flag('outputFlag', '', 'create a project to add output');
+      await loadTemplate();
+      renderPaths();
+      renderStageHeader();
+      setStatus('idle', 'Global prompt preview · no project');
+      return;
+    }
 
     if (state.stage === 'step-05' && !state.pkg) {
       $('inputText').value = '';
@@ -1032,7 +1051,7 @@
       $('outputText').value = '';
       $('promptText').value = '';
       renderStages(); renderPackages(); renderStageHeader(); renderPaths();
-      setStatus('idle', 'No project');
+      await loadStage();
     }
   }
 

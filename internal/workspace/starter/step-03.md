@@ -6,10 +6,10 @@ description: Turns the high-level design and stack into a buildable low-level de
 assembles: [input, output_step_02, output_step_02_5]
 ---
 
-You are a senior engineer producing a low-level design document. A different engineer
-must be able to implement this later without asking you a single question, and two
-engineers working in parallel must produce code that fits together. Assume no goodwill
-about details: if it is not written down here, it does not exist.
+You are an engineer producing an implementable and testable low-level design.
+Translate the selected architecture and reusable system context into precise
+implementation decisions. Do not reopen the chosen approach, stack, or scope.
+Stage 4 will divide this design into work packages; do not perform that split here.
 
 ## Project
 
@@ -28,85 +28,96 @@ about details: if it is not written down here, it does not exist.
 
 {{input}}
 
-## What I need from you
-
-### 1. Module breakdown
-A table of modules: name, responsibility, dependencies, and the public surface it
-exposes. One line of "why it is separate". Follow the repository layout from the system
-context exactly; do not invent a new structure.
-
-### 2. File and directory plan
-The concrete tree, down to the file that will hold each unit, with the purpose of each
-file. Mark files that already exist and files that will be created.
-
-### 3. Types, signatures and schemas
-Actual code sketches, not prose:
-
-- Every public function or method with its full signature, parameter and return types.
-- Every struct or class with its fields and types.
-- Every data schema, migration or serialised format, with the exact field names and
-  types, and the version field.
-- Every configuration key with type, default, and validation rule.
-
-Show enough real code that a programmer can start immediately. Keep the examples short
-and idiomatic for the chosen stack.
-
-### 4. Algorithms
-For each non-trivial operation, the algorithm or state machine as numbered steps or
-pseudocode, plus complexity and the size of the data it operates on. Name the
-edge cases and the exact branch that handles each.
-
-### 5. Error taxonomy
-A table: error condition, detection point, error type or code, user-visible message,
-logged level, retry policy, and whether it is fatal. Every fallible function in the
-signatures above appears in this table.
-
-### 6. Concurrency and ordering
-What runs on which thread or goroutine, what state is shared, which locks or channels
-are used, and what the ordering guarantees are. Name every place a race is possible and
-how it is prevented. State explicitly whether operations are idempotent and how
-re-runs are made safe.
-
-### 7. State transitions
-For each persistent entity, the state machine: states, valid transitions, the trigger,
-and the terminal states. Include what happens on a crash mid-transition.
-
-### 8. User interface specification
-For each screen or surface: the layout regions, every state it can be in (loading,
-empty, populated, error, permission denied, offline), the exact copy for errors and
-empty states, keyboard behaviour, and which actions are destructive. If this project
-has no UI, say so and specify the equivalent command surface.
-
-### 9. Observability hooks
-The exact log lines, metrics and health checks added at each boundary, with names.
-
-### 10. Test plan
-Per module: unit tests with their cases, integration tests with their fixtures, and
-end-to-end scenarios. Give the actual test names. Include the failure-path tests, and
-say which tests must pass before the module is considered done.
-
-### 11. Acceptance criteria
-A checklist per module that a reviewer can tick without interpretation.
-
-### 12. Implementation sequence
-The order modules must be built in, which can be parallelised, and what each one
-blocks. The next step turns this into work packages, so the boundaries you draw here
-are the boundaries that will exist.
-
-## Rules
-
-- Follow the pinned versions, repository layout and conventions from the system
-  context. If one of them is wrong for this design, say so explicitly and give the
-  replacement.
-- Every requirement from the Step 2 design is either implemented here or listed in a
-  "deliberately excluded" section.
-- No placeholder code. If you cannot decide something, list it in open questions with
-  a recommended default.
-
 ## Missing prerequisites
 
 {{missing_sources}}
 
-## Previous step output
+## Working rules
 
-{{previous_output}}
+- Preserve upstream requirement and decision IDs, conventions, interfaces, and
+  invariants. Record explicit user corrections. If implementation reveals a
+  necessary upstream change, propose that amendment and its consequences
+  separately; do not silently adopt it.
+- Flag contradictions with their sources. Ask only questions that materially
+  affect scope, architecture, safety, cost, or acceptance. Mark affected work
+  blocked; continue independent details with labeled assumptions.
+- Distinguish supplied claims, verified external facts, inferences, assumptions,
+  and new implementation-design decisions. Preserve original evidence status.
+- Do not invent existing files, repository conventions, commands, sources, or
+  successful checks. Mark paths and interfaces as existing only with evidence;
+  otherwise identify them as planned or unverified.
+- Stage 4 receives this document and packaging notes, not the full earlier
+  history. Carry forward the requirements, decisions, relevant stack rules,
+  interfaces, and invariants needed to package the work correctly.
+
+## What I need from you
+
+Use these headings exactly and in order. Detail behavior and boundaries enough
+to implement them without filling the document with complete application code.
+
+### 1. Module breakdown
+For each module, give responsibility, dependencies, owned state, public surface,
+and the requirements and upstream decisions it implements.
+
+### 2. File and directory plan
+Use the established layout. Give concrete paths and purposes, distinguishing
+observed existing files, supplied descriptions, and planned files.
+Identify shared registration, configuration, schema, and dependency files.
+
+### 3. Types, signatures and schemas
+Specify public contracts, exchanged data, validation, configuration, defaults,
+and compatibility or migration behavior where applicable.
+Use concise code sketches in the chosen stack. Label sketches as design,
+not tested implementations. Do not add unnecessary abstraction or version fields.
+
+### 4. Algorithms
+Specify nontrivial algorithms or state machines, relevant input bounds,
+edge cases, and complexity where it affects requirements.
+
+### 5. Error taxonomy
+For meaningful failure conditions, state detection point, error representation,
+user-visible result, logging, retry behavior, and recovery. Cover partial failures.
+
+### 6. Concurrency and ordering
+Specify execution and ownership rules, shared state, synchronization,
+ordering, cancellation, idempotency, and retry safety where relevant.
+Do not assume a concurrency model unsupported by the chosen stack.
+
+### 7. State transitions
+Describe relevant entity or workflow states, allowed transitions, triggers,
+persistence, and recovery after interrupted operations.
+
+### 8. User interface specification
+For each applicable surface, describe actions, validation, loading, empty,
+success, error, permission, and offline states. Include relevant keyboard and
+accessibility behavior. Mark inapplicable states instead of inventing them.
+For a non-UI system, specify the corresponding command or API behavior.
+
+### 9. Observability hooks
+Specify diagnostic events and measurements required by the chosen design,
+their data and levels, and sensitive information that must be excluded.
+
+### 10. Test plan
+Map meaningful tests to requirements, contracts, risks, and failure paths.
+Specify fixtures, test level, expected results, and execution prerequisites.
+Give proposed test names where useful. Distinguish supported commands from
+test infrastructure that must first be implemented. Do not claim tests ran.
+
+### 11. Acceptance criteria
+Assign stable acceptance IDs. For each criterion, identify the requirement,
+observable behavior, conditions, verification method, and pass condition.
+Map every in-scope requirement to criteria or an explicitly unresolved issue.
+List previously approved exclusions separately; propose new exclusions for
+confirmation rather than dropping requirements.
+
+### 12. Implementation sequence
+Order implementation by dependencies. Identify prerequisite contracts, setup,
+shared-file integration, and work that can proceed independently.
+Describe useful review checkpoints without deciding final package boundaries.
+
+## Handoff
+
+List what Stage 4 must use: requirement and acceptance IDs, module/file ownership,
+contracts, relevant reusable-context rules, dependency order, and test prerequisites.
+List unresolved decisions and the specific work they block. State whether the
+design is ready to package.
